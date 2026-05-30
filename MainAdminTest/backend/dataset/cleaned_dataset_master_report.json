@@ -1,0 +1,232 @@
+{
+  "disease_dataset": {
+    "clean_rows": 37476,
+    "clean_csv": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_disease_symptoms_treatments.csv",
+    "raw_csv_already_removed": true
+  },
+  "drug_review_dataset": {
+    "train_raw_rows": 110811,
+    "raw_rows": 184622,
+    "dropped_invalid_condition": 999,
+    "test_raw_rows": 46108,
+    "validation_raw_rows": 27703,
+    "clean_rows": 183623,
+    "condition_count": 772,
+    "drug_count": 3232,
+    "condition_drug_pairs": 7387,
+    "top_conditions": [
+      [
+        "birth control",
+        36912
+      ],
+      [
+        "depression",
+        10784
+      ],
+      [
+        "acne",
+        6933
+      ],
+      [
+        "anxiety",
+        6580
+      ],
+      [
+        "pain",
+        6334
+      ],
+      [
+        "bipolar disorde",
+        4739
+      ],
+      [
+        "weight loss",
+        4472
+      ],
+      [
+        "obesity",
+        4333
+      ],
+      [
+        "insomnia",
+        3982
+      ],
+      [
+        "adhd",
+        3949
+      ],
+      [
+        "emergency contraception",
+        3115
+      ],
+      [
+        "diabetes, type 2",
+        2860
+      ],
+      [
+        "vaginal yeast infection",
+        2787
+      ],
+      [
+        "abnormal uterine bleeding",
+        2595
+      ],
+      [
+        "high blood pressure",
+        2398
+      ],
+      [
+        "bowel preparation",
+        2354
+      ],
+      [
+        "smoking cessation",
+        2203
+      ],
+      [
+        "anxiety and stress",
+        2023
+      ],
+      [
+        "ibromyalgia",
+        1981
+      ],
+      [
+        "major depressive disorde",
+        1887
+      ],
+      [
+        "constipation",
+        1887
+      ],
+      [
+        "migraine",
+        1879
+      ],
+      [
+        "migraine prevention",
+        1681
+      ],
+      [
+        "panic disorde",
+        1659
+      ],
+      [
+        "chronic pain",
+        1537
+      ]
+    ],
+    "top_drugs": [
+      [
+        "levonorgestrel",
+        4728
+      ],
+      [
+        "etonogestrel",
+        4277
+      ],
+      [
+        "ethinyl estradiol norethindrone",
+        3446
+      ],
+      [
+        "nexplanon",
+        2805
+      ],
+      [
+        "ethinyl estradiol norgestimate",
+        2559
+      ],
+      [
+        "ethinyl estradiol levonorgestrel",
+        2274
+      ],
+      [
+        "phentermine",
+        1898
+      ],
+      [
+        "sertraline",
+        1702
+      ],
+      [
+        "mirena",
+        1598
+      ],
+      [
+        "escitalopram",
+        1572
+      ],
+      [
+        "implanon",
+        1449
+      ],
+      [
+        "bupropion",
+        1237
+      ],
+      [
+        "miconazole",
+        1218
+      ],
+      [
+        "medroxyprogesterone",
+        1209
+      ],
+      [
+        "gabapentin",
+        1202
+      ],
+      [
+        "citalopram",
+        1185
+      ],
+      [
+        "venlafaxine",
+        1170
+      ],
+      [
+        "bupropion naltrexone",
+        1160
+      ],
+      [
+        "contrave",
+        1128
+      ],
+      [
+        "lexapro",
+        1118
+      ],
+      [
+        "drospirenone ethinyl estradiol",
+        1086
+      ],
+      [
+        "metronidazole",
+        1086
+      ],
+      [
+        "duloxetine",
+        1079
+      ],
+      [
+        "depo-provera",
+        1074
+      ],
+      [
+        "skyla",
+        1054
+      ]
+    ],
+    "clean_drug_reviews_csv": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_drug_reviews.csv",
+    "medication_summary_csv": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_medication_condition_summary.csv",
+    "important_note": "Drug reviews are patient-reported evidence. They can support medication context, but they are not prescribing guidance and must not override clinician judgment, local formulary rules, contraindications, allergies, pregnancy status, age, kidney/liver function, or guidelines.",
+    "raw_csvs_already_removed": true
+  },
+  "deleted_raw_files": [],
+  "model_ready_files": [
+    "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_disease_symptoms_treatments.csv",
+    "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_drug_reviews.csv",
+    "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_medication_condition_summary.csv"
+  ]
+}

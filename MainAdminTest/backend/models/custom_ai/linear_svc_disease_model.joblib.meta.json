@@ -1,0 +1,18 @@
+{
+  "model": "tfidf_linear_svc",
+  "row_count": 37251,
+  "csv": {
+    "path": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_disease_symptoms_treatments.csv",
+    "mtime": 1779971581.4260075,
+    "size": 35806856
+  },
+  "doctor_feedback_signature": {
+    "path": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\doctor_decision_feedback.csv",
+    "mtime": 0,
+    "size": 0
+  },
+  "doctor_feedback": {
+    "path": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\doctor_decision_feedback.csv",
+    "row_count": 0
+  }
+}

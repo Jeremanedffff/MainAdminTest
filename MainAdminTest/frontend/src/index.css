@@ -1,0 +1,670 @@
+/* =========================
+   HealthSphere UI Theme
+   Modern Healthcare Design System
+   ========================= */
+
+:root {
+  /* Healthcare Color Palette */
+  --primary: #4A90E2;
+  --primary-dark: #2C5AA0;
+  --secondary: #35B7A5;
+  --accent-green: #35B7A5;
+  --bg-main: #F4F6F8;
+  --surface: #FFFFFF;
+  --text-primary: #000000;
+  --text-secondary: #666666;
+  --error: #D0021B;
+  --warning: #F5A623;
+
+  /* Gradients */
+  --gradient-primary: linear-gradient(135deg, #4A90E2, #50BFBF);
+  --gradient-success: linear-gradient(135deg, #35B7A5, #4A90E2);
+  --gradient-bg: linear-gradient(180deg, #EAF4FF, #FFFFFF);
+
+  /* Semantic Colors */
+  --success: #7ED321;
+  --danger: #D0021B;
+  --info: #4A90E2;
+  --warning: #F5A623;
+
+  /* Shadows */
+  --shadow-sm: 0 2px 8px rgba(0, 0, 0, 0.08);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.12);
+  --shadow-lg: 0 8px 24px rgba(0, 0, 0, 0.16);
+
+  /* Spacing */
+  --space-xs: 4px;
+  --space-sm: 8px;
+  --space-md: 16px;
+  --space-lg: 24px;
+  --space-xl: 32px;
+
+  /* Border Radius */
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 20px;
+
+  /* Typography */
+  --font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+  --font-size-sm: 12px;
+  --font-size-base: 14px;
+  --font-size-lg: 16px;
+  --font-size-xl: 18px;
+  --font-weight-normal: 400;
+  --font-weight-medium: 500;
+  --font-weight-semibold: 600;
+  --font-weight-bold: 700;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  height: 100%;
+  margin: 0;
+  font-family: var(--font-family);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  color: var(--text-primary);
+  background: var(--bg-main);
+  min-height: 100vh;
+  margin: 0;
+  padding: 0;
+  line-height: 1.5;
+}
+
+/* Healthcare Design System Components */
+
+/* Buttons */
+.btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-sm) var(--space-md);
+  border: none;
+  border-radius: var(--radius-md);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  font-weight: var(--font-weight-medium);
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  line-height: 1.5;
+}
+
+.btn-primary {
+  background: var(--gradient-primary);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-primary:hover {
+  background: var(--primary-dark);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-secondary {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--primary);
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-secondary:hover {
+  background: var(--primary);
+  color: white;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-success {
+  background: var(--gradient-success);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-success:hover {
+  background: var(--accent-green);
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+.btn-danger {
+  background: var(--error);
+  color: white;
+  box-shadow: var(--shadow-sm);
+}
+
+.btn-danger:hover {
+  background: #B71C1C;
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Cards */
+.card {
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
+  border: 1px solid rgba(74, 144, 226, 0.1);
+  overflow: hidden;
+}
+
+.card-header {
+  padding: var(--space-md);
+  border-bottom: 1px solid rgba(74, 144, 226, 0.1);
+  background: rgba(74, 144, 226, 0.05);
+}
+
+.card-body {
+  padding: var(--space-md);
+}
+
+.card-footer {
+  padding: var(--space-md);
+  border-top: 1px solid rgba(74, 144, 226, 0.1);
+  background: rgba(74, 144, 226, 0.05);
+}
+
+/* Form Elements */
+.form-input {
+  width: 100%;
+  padding: var(--space-sm) var(--space-md);
+  border: 1px solid rgba(110, 124, 147, 0.2);
+  border-radius: var(--radius-md);
+  background: var(--surface);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  font-size: var(--font-size-base);
+  transition: all 0.2s ease;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.form-label {
+  display: block;
+  margin-bottom: var(--space-xs);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+  font-size: var(--font-size-sm);
+}
+
+/* Status Badges */
+.badge {
+  display: inline-flex;
+  align-items: center;
+  padding: var(--space-xs) var(--space-sm);
+  border-radius: var(--radius-xl);
+  font-size: var(--font-size-sm);
+  font-weight: var(--font-weight-medium);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.badge-success {
+  background: rgba(126, 211, 33, 0.1);
+  color: var(--success);
+  border: 1px solid rgba(126, 211, 33, 0.2);
+}
+
+.badge-danger {
+  background: rgba(208, 2, 27, 0.1);
+  color: var(--error);
+  border: 1px solid rgba(208, 2, 27, 0.2);
+}
+
+.badge-warning {
+  background: rgba(245, 166, 35, 0.1);
+  color: var(--warning);
+  border: 1px solid rgba(245, 166, 35, 0.2);
+}
+
+/* Tables */
+.table {
+  width: 100%;
+  border-collapse: collapse;
+  background: var(--surface);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.table th {
+  background: var(--gradient-primary);
+  color: white;
+  padding: var(--space-md);
+  text-align: left;
+  font-weight: var(--font-weight-semibold);
+  font-size: var(--font-size-sm);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.table td {
+  padding: var(--space-md);
+  border-bottom: 1px solid rgba(110, 124, 147, 0.1);
+  color: var(--text-primary);
+  font-size: var(--font-size-base);
+}
+
+.table tr:hover td {
+  background: rgba(74, 144, 226, 0.05);
+}
+
+/* Make sure links never disappear */
+a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.2s ease;
+}
+
+a:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+/* Override any conflicting styles */
+#root {
+  max-width: none;
+  margin: 0;
+  padding: 0;
+  text-align: left;
+  background: transparent;
+}
+
+/* Remove any default button styles that might conflict */
+button {
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+}
+
+/* Remove any default input styles that might conflict */
+input, select, textarea {
+  font-family: inherit;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 0;
+  margin: 0;
+}
+
+/* Icon Styling */
+.icon {
+  width: 20px;
+  height: 20px;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.icon-sm {
+  width: 16px;
+  height: 16px;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.icon-lg {
+  width: 24px;
+  height: 24px;
+  color: var(--text-secondary);
+  transition: color 0.2s ease;
+}
+
+.icon-active {
+  color: var(--primary);
+}
+
+.icon-white {
+  color: white;
+}
+
+.icon-hover:hover {
+  color: var(--primary);
+}
+
+/* Dark Mode Support */
+@media (prefers-color-scheme: dark) {
+  :root {
+    color: var(--text) !important;
+    background-color: var(--bg) !important;
+  }
+  body {
+    background: 
+      radial-gradient(1200px 700px at 30% 15%, rgba(46, 233, 166, 0.14), transparent 60%),
+      radial-gradient(900px 700px at 75% 25%, rgba(57, 182, 255, 0.12), transparent 62%),
+      radial-gradient(650px 520px at 60% 80%, rgba(255, 204, 102, 0.06), transparent 60%),
+      linear-gradient(180deg, var(--bg), var(--bg2)) !important;
+    color: var(--text) !important;
+  }
+}
+
+/* Ensure white backgrounds have black text */
+[style*="background: white"], 
+[style*="background: #fff"], 
+[style*="background:#fff"], 
+[style*="background:white"],
+[style*="background: #ffffff"],
+[style*="background:#ffffff"] {
+  color: #000000 !important;
+}
+
+/* Ensure light gray backgrounds have black text */
+[style*="background: #f8fafc"],
+[style*="background:#f8fafc"],
+[style*="background: #f6f8fb"],
+[style*="background:#f6f8fb"] {
+  color: #000000 !important;
+}
+
+/* Force all text in modals to be black */
+div[style*="background: white"] *,
+div[style*="background: #fff"] *,
+div[style*="background:#fff"] *,
+div[style*="background:white"] *,
+div[style*="background: #ffffff"] *,
+div[style*="background:#ffffff"] * {
+  color: #000000 !important;
+}
+
+/* Force all text in light gray containers to be black */
+div[style*="background: #f8fafc"] *,
+div[style*="background:#f8fafc"] *,
+div[style*="background: #f6f8fb"] *,
+div[style*="background:#f6f8fb"] * {
+  color: #000000 !important;
+}
+
+/* =========================
+   Polished System Forms
+   ========================= */
+
+:root {
+  --form-border: rgba(74, 144, 226, 0.2);
+  --form-border-strong: rgba(74, 144, 226, 0.52);
+  --form-surface: rgba(255, 255, 255, 0.92);
+  --form-surface-focus: rgba(255, 255, 255, 0.98);
+  --form-text: #16324f;
+  --form-muted-text: #475569;
+  --form-shadow: 0 16px 42px rgba(15, 23, 42, 0.08);
+  --form-focus-shadow: 0 0 0 4px rgba(74, 144, 226, 0.14), 0 18px 44px rgba(15, 23, 42, 0.1);
+}
+
+form,
+.hs-form,
+.login-card,
+.hs-modal,
+.reception-dashboard div:has(> input, > select, > textarea),
+.hospital-admin-dashboard div:has(> input, > select, > textarea),
+.main-admin-dashboard div:has(> input, > select, > textarea),
+.doctor-dashboard div:has(> input, > select, > textarea),
+.patient-dashboard div:has(> input, > select, > textarea),
+.lab-dashboard div:has(> input, > select, > textarea),
+.pharmacist-dashboard div:has(> input, > select, > textarea) {
+  position: relative;
+  isolation: isolate;
+}
+
+form:has(input, select, textarea),
+.hs-form:has(input, select, textarea),
+.login-card:has(input, select, textarea),
+.hs-modal:has(input, select, textarea) {
+  overflow: hidden;
+}
+
+form:has(input, select, textarea)::before,
+.hs-form:has(input, select, textarea)::before,
+.login-card:has(input, select, textarea)::before,
+.hs-modal:has(input, select, textarea)::before,
+.reception-dashboard div:has(> input, > select, > textarea)::before,
+.hospital-admin-dashboard div:has(> input, > select, > textarea)::before,
+.main-admin-dashboard div:has(> input, > select, > textarea)::before,
+.doctor-dashboard div:has(> input, > select, > textarea)::before,
+.patient-dashboard div:has(> input, > select, > textarea)::before,
+.lab-dashboard div:has(> input, > select, > textarea)::before,
+.pharmacist-dashboard div:has(> input, > select, > textarea)::before {
+  content: "";
+  position: absolute;
+  inset: -18px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0;
+  background:
+    radial-gradient(circle at 20% 22%, rgba(80, 191, 191, 0.18), transparent 22%),
+    radial-gradient(circle at 82% 18%, rgba(74, 144, 226, 0.16), transparent 20%),
+    radial-gradient(circle at 80% 84%, rgba(126, 211, 33, 0.12), transparent 22%),
+    conic-gradient(from 0deg at 50% 50%, transparent 0 12%, rgba(74, 144, 226, 0.16) 12% 18%, transparent 18% 42%, rgba(80, 191, 191, 0.18) 42% 48%, transparent 48% 100%);
+  border-radius: 14px;
+  transform: scale(0.98);
+  transition: opacity 0.22s ease, transform 0.22s ease;
+  animation: medicalFormAura 14s linear infinite;
+}
+
+form:focus-within::before,
+.hs-form:focus-within::before,
+.login-card:focus-within::before,
+.hs-modal:focus-within::before,
+.reception-dashboard div:focus-within::before,
+.hospital-admin-dashboard div:focus-within::before,
+.main-admin-dashboard div:focus-within::before,
+.doctor-dashboard div:focus-within::before,
+.patient-dashboard div:focus-within::before,
+.lab-dashboard div:focus-within::before,
+.pharmacist-dashboard div:focus-within::before {
+  opacity: 1;
+  transform: scale(1);
+}
+
+form:has(input, select, textarea)::after,
+.hs-form:has(input, select, textarea)::after,
+.login-card:has(input, select, textarea)::after,
+.hs-modal:has(input, select, textarea)::after {
+  content: "";
+  position: absolute;
+  right: 14px;
+  top: 14px;
+  width: 112px;
+  height: 112px;
+  pointer-events: none;
+  z-index: -1;
+  opacity: 0.32;
+  background:
+    linear-gradient(90deg, #ffffff 0 42%, rgba(74, 144, 226, 0.28) 42% 58%, #ffffff 58% 100%) 8px 12px / 42px 18px no-repeat,
+    linear-gradient(90deg, #ffffff 0 42%, rgba(80, 191, 191, 0.3) 42% 58%, #ffffff 58% 100%) 58px 52px / 42px 18px no-repeat,
+    linear-gradient(90deg, rgba(255, 255, 255, 0.95) 0 42%, rgba(245, 166, 35, 0.25) 42% 58%, rgba(255, 255, 255, 0.95) 58% 100%) 18px 82px / 42px 18px no-repeat;
+  border-radius: 50%;
+  filter: drop-shadow(0 12px 18px rgba(74, 144, 226, 0.16));
+  animation: tabletSpin 10s linear infinite;
+}
+
+form > *,
+.hs-form > *,
+.login-card > *,
+.hs-modal > * {
+  position: relative;
+  z-index: 1;
+}
+
+input:not([type="checkbox"]):not([type="radio"]),
+select,
+textarea,
+.form-input,
+.hs-input,
+.hs-searchInput,
+.hs-textarea {
+  min-height: 42px !important;
+  width: 100%;
+  border: 1px solid var(--form-border) !important;
+  border-radius: 8px !important;
+  background:
+    linear-gradient(180deg, var(--form-surface), rgba(248, 251, 255, 0.9)) !important;
+  color: var(--form-text) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.8), 0 1px 2px rgba(15, 23, 42, 0.04) !important;
+  font-size: 14px !important;
+  font-weight: 700 !important;
+  line-height: 1.35 !important;
+  padding: 11px 13px !important;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, transform 0.18s ease !important;
+}
+
+textarea,
+.hs-textarea {
+  min-height: 130px !important;
+  resize: vertical;
+}
+
+select {
+  appearance: none;
+  background-image:
+    linear-gradient(45deg, transparent 50%, #4a90e2 50%),
+    linear-gradient(135deg, #4a90e2 50%, transparent 50%),
+    linear-gradient(180deg, var(--form-surface), rgba(248, 251, 255, 0.9)) !important;
+  background-position:
+    calc(100% - 18px) 50%,
+    calc(100% - 12px) 50%,
+    0 0 !important;
+  background-size:
+    6px 6px,
+    6px 6px,
+    100% 100% !important;
+  background-repeat: no-repeat !important;
+  padding-right: 38px !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):hover,
+select:hover,
+textarea:hover,
+.form-input:hover,
+.hs-input:hover,
+.hs-searchInput:hover,
+.hs-textarea:hover {
+  border-color: rgba(74, 144, 226, 0.36) !important;
+}
+
+input:not([type="checkbox"]):not([type="radio"]):focus,
+select:focus,
+textarea:focus,
+.form-input:focus,
+.hs-input:focus,
+.hs-searchInput:focus,
+.hs-textarea:focus {
+  background: var(--form-surface-focus) !important;
+  border-color: var(--form-border-strong) !important;
+  box-shadow: var(--form-focus-shadow) !important;
+  transform: translateY(-1px);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(22, 50, 79, 0.62) !important;
+  font-weight: 650;
+}
+
+input:disabled,
+select:disabled,
+textarea:disabled {
+  cursor: not-allowed !important;
+  opacity: 0.68 !important;
+  background: #eef2f7 !important;
+}
+
+input[type="checkbox"],
+input[type="radio"] {
+  width: 18px;
+  height: 18px;
+  accent-color: var(--primary);
+}
+
+.hs-form,
+form {
+  gap: 14px !important;
+}
+
+form:has(input, select, textarea),
+.hs-form:has(input, select, textarea),
+.login-card:has(input, select, textarea),
+.hs-modal:has(input, select, textarea),
+.reception-dashboard div:has(> input, > select, > textarea),
+.hospital-admin-dashboard div:has(> input, > select, > textarea),
+.main-admin-dashboard div:has(> input, > select, > textarea),
+.doctor-dashboard div:has(> input, > select, > textarea),
+.patient-dashboard div:has(> input, > select, > textarea),
+.lab-dashboard div:has(> input, > select, > textarea),
+.pharmacist-dashboard div:has(> input, > select, > textarea) {
+  color: var(--form-text) !important;
+}
+
+form:has(input, select, textarea) label,
+.hs-form label,
+.login-card:has(input, select, textarea) label,
+.hs-modal:has(input, select, textarea) label,
+.form-label,
+.hs-label,
+.reception-dashboard div:has(> input, > select, > textarea) label,
+.hospital-admin-dashboard div:has(> input, > select, > textarea) label,
+.main-admin-dashboard div:has(> input, > select, > textarea) label,
+.doctor-dashboard div:has(> input, > select, > textarea) label,
+.patient-dashboard div:has(> input, > select, > textarea) label,
+.lab-dashboard div:has(> input, > select, > textarea) label,
+.pharmacist-dashboard div:has(> input, > select, > textarea) label {
+  color: var(--form-text) !important;
+}
+
+select option {
+  color: var(--form-text);
+}
+
+@keyframes medicalFormAura {
+  0% {
+    transform: rotate(0deg) scale(0.98);
+  }
+  100% {
+    transform: rotate(360deg) scale(0.98);
+  }
+}
+
+@keyframes tabletSpin {
+  0% {
+    transform: rotate(0deg) translateY(0);
+  }
+  50% {
+    transform: rotate(180deg) translateY(-4px);
+  }
+  100% {
+    transform: rotate(360deg) translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  form:has(input, select, textarea)::before,
+  form:has(input, select, textarea)::after,
+  .hs-form:has(input, select, textarea)::before,
+  .hs-form:has(input, select, textarea)::after,
+  .login-card:has(input, select, textarea)::before,
+  .login-card:has(input, select, textarea)::after,
+  .hs-modal:has(input, select, textarea)::before,
+  .hs-modal:has(input, select, textarea)::after,
+  .reception-dashboard div:has(> input, > select, > textarea)::before,
+  .hospital-admin-dashboard div:has(> input, > select, > textarea)::before,
+  .main-admin-dashboard div:has(> input, > select, > textarea)::before,
+  .doctor-dashboard div:has(> input, > select, > textarea)::before,
+  .patient-dashboard div:has(> input, > select, > textarea)::before,
+  .lab-dashboard div:has(> input, > select, > textarea)::before,
+  .pharmacist-dashboard div:has(> input, > select, > textarea)::before {
+    animation: none;
+  }
+}

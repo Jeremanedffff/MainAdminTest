@@ -1,0 +1,221 @@
+{
+  "raw_rows": 50000,
+  "dropped_duplicate_disease_symptoms": 12524,
+  "clean_rows": 37476,
+  "disease_count": 784,
+  "symptom_count": 344,
+  "rows_with_low_symptom_signal": 225,
+  "rows_requiring_clinician_treatment_review": 36587,
+  "symptoms_per_row": {
+    "min": 1,
+    "max": 14,
+    "avg": 4.961
+  },
+  "top_diseases": [
+    [
+      "acute bronchiolitis",
+      90
+    ],
+    [
+      "acute bronchitis",
+      90
+    ],
+    [
+      "acute pancreatitis",
+      90
+    ],
+    [
+      "acute sinusitis",
+      90
+    ],
+    [
+      "allergy",
+      90
+    ],
+    [
+      "anxiety",
+      90
+    ],
+    [
+      "arthritis of the hip",
+      90
+    ],
+    [
+      "bell palsy",
+      90
+    ],
+    [
+      "benign prostatic hyperplasia (bph)",
+      90
+    ],
+    [
+      "benign vaginal discharge (leukorrhea)",
+      90
+    ],
+    [
+      "brachial neuritis",
+      90
+    ],
+    [
+      "bursitis",
+      90
+    ],
+    [
+      "carpal tunnel syndrome",
+      90
+    ],
+    [
+      "cholecystitis",
+      90
+    ],
+    [
+      "chronic constipation",
+      90
+    ],
+    [
+      "chronic knee pain",
+      90
+    ],
+    [
+      "chronic obstructive pulmonary disease (copd)",
+      90
+    ],
+    [
+      "chronic sinusitis",
+      90
+    ],
+    [
+      "complex regional pain syndrome",
+      90
+    ],
+    [
+      "concussion",
+      90
+    ]
+  ],
+  "top_symptoms": [
+    [
+      "sharp abdominal pain",
+      4485
+    ],
+    [
+      "headache",
+      3704
+    ],
+    [
+      "vomiting",
+      3672
+    ],
+    [
+      "sharp chest pain",
+      3427
+    ],
+    [
+      "cough",
+      3188
+    ],
+    [
+      "shortness of breath",
+      3183
+    ],
+    [
+      "nausea",
+      3113
+    ],
+    [
+      "dizziness",
+      2679
+    ],
+    [
+      "back pain",
+      2618
+    ],
+    [
+      "fever",
+      2600
+    ],
+    [
+      "abnormal appearing skin",
+      2346
+    ],
+    [
+      "leg pain",
+      2208
+    ],
+    [
+      "depressive or psychotic symptoms",
+      2206
+    ],
+    [
+      "skin swelling",
+      2156
+    ],
+    [
+      "nasal congestion",
+      1966
+    ],
+    [
+      "lower abdominal pain",
+      1949
+    ],
+    [
+      "skin lesion",
+      1812
+    ],
+    [
+      "sore throat",
+      1810
+    ],
+    [
+      "skin rash",
+      1704
+    ],
+    [
+      "abnormal involuntary movements",
+      1555
+    ],
+    [
+      "depression",
+      1535
+    ],
+    [
+      "pain in eye",
+      1519
+    ],
+    [
+      "weakness",
+      1514
+    ],
+    [
+      "burning abdominal pain",
+      1502
+    ],
+    [
+      "skin growth",
+      1490
+    ],
+    [
+      "arm pain",
+      1448
+    ],
+    [
+      "diminished vision",
+      1411
+    ],
+    [
+      "anxiety and nervousness",
+      1394
+    ],
+    [
+      "neck pain",
+      1334
+    ],
+    [
+      "diarrhea",
+      1333
+    ]
+  ],
+  "raw_csv": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\complete_disease_symptoms_treatments_50000.csv",
+  "clean_csv": "C:\\Users\\iiii\\Music\\MainAdminTest\\MainAdminTest\\backend\\dataset\\cleaned_disease_symptoms_treatments.csv",
+  "important_note": "Treatment/advice columns are dataset support text only. They are not a verified medication prescribing source and must be clinician-reviewed before patient-facing medication recommendations."
+}

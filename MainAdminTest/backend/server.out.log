@@ -1,0 +1,8 @@
+Custom Medical AI disabled: missing optional dependency torch
+Loaded trained LinearSVC disease model
+Local cleaned-data disease predictor initialized successfully
+Starting Health-Sphere AI Backend Server...
+Patient Data Isolation: ENABLED - Each patient analyzed separately
+AI Summary Generation: ACTIVE - Using local cleaned-data AI + fallback
+INFO:     127.0.0.1:56033 - "GET /openapi.json HTTP/1.1" 200 OK
+INFO:     127.0.0.1:56217 - "POST /ai/medication-recommendation HTTP/1.1" 200 OK

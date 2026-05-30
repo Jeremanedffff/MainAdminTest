@@ -1,0 +1,62 @@
+.patient-dashboard {
+  background: var(--gradient-bg);
+  color: var(--text-primary);
+  font-family: var(--font-family);
+  min-height: 100vh;
+}
+
+.patient-dashboard h1,
+.patient-dashboard h2,
+.patient-dashboard h3,
+.patient-dashboard h4,
+.patient-dashboard h5,
+.patient-dashboard h6,
+.patient-dashboard p,
+.patient-dashboard span,
+.patient-dashboard div {
+  color: var(--text-primary);
+}
+
+.patient-dashboard input,
+.patient-dashboard select,
+.patient-dashboard textarea {
+  color: var(--text-primary);
+  background-color: var(--surface);
+  border: 1px solid rgba(74, 144, 226, 0.2);
+}
+
+.patient-dashboard input:focus,
+.patient-dashboard select:focus,
+.patient-dashboard textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(74, 144, 226, 0.1);
+}
+
+.patient-dashboard button {
+  color: var(--text-primary);
+  background-color: var(--surface);
+  border: 1px solid rgba(74, 144, 226, 0.2);
+}
+
+.patient-dashboard button:hover {
+  background-color: rgba(74, 144, 226, 0.1);
+  border-color: var(--primary);
+}
+
+.patient-dashboard label {
+  color: var(--text-secondary);
+}
+
+.patient-dashboard option {
+  color: var(--text-primary);
+  background: var(--surface);
+}
+
+.patient-dashboard input,
+.patient-dashboard select,
+.patient-dashboard textarea,
+.patient-dashboard label,
+.patient-dashboard option {
+  color: var(--form-text) !important;
+}
