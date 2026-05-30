@@ -71,3 +71,9 @@ export default defineConfig([
   },
 ])
 ```
+## Dataset
+
+The dataset is stored on Google Drive because it exceeds GitHub's file size limit.
+
+Download:
+https://drive.google.com/file/d/1aoOzNUG7Cp6mEARGbPB9qsjfIAwlYnPz/view?usp=sharing
