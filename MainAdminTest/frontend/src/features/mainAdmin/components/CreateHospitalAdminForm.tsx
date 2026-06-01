@@ -184,7 +184,7 @@ const CreateHospitalAdminForm: React.FC<Props> = ({
           style={styles.input}
           value={fullName}
           onChange={(e) => setFullName(lettersOnlyInput(e.target.value))}
-          placeholder="e.g. Thabiso Mokhele"
+          placeholder="Enter admin full name"
           disabled={saving}
         />
       </div>
@@ -196,7 +196,7 @@ const CreateHospitalAdminForm: React.FC<Props> = ({
           type="email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="e.g. admin@hospital.org"
+          placeholder="Enter admin email address"
           disabled={saving}
         />
       </div>
@@ -224,7 +224,7 @@ const CreateHospitalAdminForm: React.FC<Props> = ({
             style={styles.input}
             value={phone}
             onChange={(e) => setPhone(digitsOnlyInput(e.target.value))}
-            placeholder={countryCode === "+266" ? "e.g. 59990304" : "Enter phone number"}
+            placeholder={countryCode === "+266" ? "Enter 8-digit phone number" : "Enter phone number"}
             maxLength={countryCode === "+266" ? 8 : undefined}
             disabled={saving}
           />

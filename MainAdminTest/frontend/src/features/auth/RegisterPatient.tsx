@@ -268,7 +268,7 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
                 style={styles.inputInset}
                 value={phone}
                 onChange={(e) => setPhone(digitsOnlyInput(e.target.value))}
-                placeholder="e.g. 56560000"
+                placeholder="Enter 8-digit phone number"
                 maxLength={8}
               />
             </div>

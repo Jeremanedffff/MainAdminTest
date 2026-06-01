@@ -29,53 +29,9 @@ const SettingsAdminAccounts = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [adminFormError, setAdminFormError] = useState("");
   
-  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([
-    {
-      id: "1",
-      email: "admin@hospital.com",
-      name: "System Administrator",
-      role: "SUPER_ADMIN",
-      createdAt: "2024-01-15T10:30:00Z",
-      lastLogin: "2024-03-24T14:22:00Z",
-      status: "ACTIVE"
-    },
-    {
-      id: "2", 
-      email: "manager@hospital.com",
-      name: "Hospital Manager",
-      role: "ADMIN",
-      createdAt: "2024-02-01T09:15:00Z",
-      lastLogin: "2024-03-23T16:45:00Z",
-      status: "ACTIVE"
-    }
-  ]);
+  const [adminAccounts, setAdminAccounts] = useState<AdminAccount[]>([]);
 
-  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([
-    {
-      id: "1",
-      adminId: "1",
-      adminName: "System Administrator",
-      action: "LOGIN",
-      timestamp: "2024-03-24T14:22:00Z",
-      details: "Logged in from 192.168.1.100"
-    },
-    {
-      id: "2",
-      adminId: "1", 
-      adminName: "System Administrator",
-      action: "CREATE_ADMIN",
-      timestamp: "2024-03-24T13:15:00Z",
-      details: "Created new admin account: manager@hospital.com"
-    },
-    {
-      id: "3",
-      adminId: "2",
-      adminName: "Hospital Manager", 
-      action: "PASSWORD_RESET",
-      timestamp: "2024-03-23T16:45:00Z",
-      details: "Password reset completed"
-    }
-  ]);
+  const [activityLogs, setActivityLogs] = useState<ActivityLog[]>([]);
 
   const [newAdmin, setNewAdmin] = useState({
     name: "",
@@ -107,7 +63,7 @@ const SettingsAdminAccounts = () => {
       const log: ActivityLog = {
         id: Date.now().toString(),
         adminId: "1",
-        adminName: "Current User",
+        adminName: "Authenticated admin",
         action: "CREATE_ADMIN",
         timestamp: new Date().toISOString(),
         details: `Created new admin account: ${newAdmin.email}`
@@ -131,7 +87,7 @@ const SettingsAdminAccounts = () => {
       const log: ActivityLog = {
         id: Date.now().toString(),
         adminId: "1",
-        adminName: "Current User",
+        adminName: "Authenticated admin",
         action: "PASSWORD_RESET",
         timestamp: new Date().toISOString(),
         details: `Password reset for ${selectedAdmin.email}`
@@ -149,7 +105,7 @@ const SettingsAdminAccounts = () => {
       const log: ActivityLog = {
         id: Date.now().toString(),
         adminId: "1",
-        adminName: "Current User", 
+        adminName: "Authenticated admin", 
         action: "DELETE_ADMIN",
         timestamp: new Date().toISOString(),
         details: `Deleted admin account: ${admin.email}`
@@ -167,7 +123,7 @@ const SettingsAdminAccounts = () => {
       const log: ActivityLog = {
         id: Date.now().toString(),
         adminId: "1",
-        adminName: "Current User",
+        adminName: "Authenticated admin",
         action: "ROLE_CHANGE",
         timestamp: new Date().toISOString(),
         details: `Changed role for ${admin.email} from ${admin.role} to ${newRole}`

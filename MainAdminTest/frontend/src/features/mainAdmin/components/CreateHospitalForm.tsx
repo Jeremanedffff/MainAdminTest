@@ -6,7 +6,7 @@ export type HospitalStatus = "ACTIVE" | "DISABLED";
 export type CreateHospitalPayload = {
   name: string;
   location: string;
-  code: string; // e.g. MSR
+  code: string;
   country: string;
   licenseNumber: string;
   status: HospitalStatus;
@@ -59,7 +59,7 @@ const CreateHospitalForm: React.FC<Props> = ({
 
     if (nameWarning) return setError(nameWarning);
     if (locationWarning) return setError(locationWarning);
-    if (!code.trim()) return setError("Hospital code is required (e.g. MSR).");
+    if (!code.trim()) return setError("Hospital code is required.");
     if (!/^[A-Za-z]{2,3}$/.test(code.trim())) return setError("Hospital code must contain letters only, 2 to 3 characters.");
     if (!country.trim()) return setError("Country is required.");
 
@@ -107,7 +107,7 @@ const CreateHospitalForm: React.FC<Props> = ({
           style={styles.input}
           value={name}
           onChange={(e) => setName(lettersOnlyInput(e.target.value))}
-          placeholder="e.g. Queen Mamohato Memorial Hospital"
+          placeholder="Enter hospital name"
           disabled={saving}
         />
       </div>
@@ -118,7 +118,7 @@ const CreateHospitalForm: React.FC<Props> = ({
           style={styles.input}
           value={location}
           onChange={(e) => setLocation(lettersOnlyInput(e.target.value))}
-          placeholder="e.g. Maseru"
+          placeholder="Enter hospital location"
           disabled={saving}
         />
       </div>
@@ -129,7 +129,7 @@ const CreateHospitalForm: React.FC<Props> = ({
           style={styles.input}
           value={code}
           onChange={(e) => setCode(lettersOnlyInput(e.target.value).replace(/\s/g, "").slice(0, 3).toUpperCase())}
-          placeholder="e.g. MSR (used in the ID)"
+          placeholder="Enter hospital code"
           disabled={saving}
         />
         <div style={styles.hint}>
@@ -143,7 +143,7 @@ const CreateHospitalForm: React.FC<Props> = ({
           style={styles.input}
           value={country}
           onChange={(e) => setCountry(lettersOnlyInput(e.target.value))}
-          placeholder="e.g. Lesotho"
+          placeholder="Enter country"
           disabled={saving}
         />
       </div>
@@ -154,7 +154,7 @@ const CreateHospitalForm: React.FC<Props> = ({
           style={styles.input}
           value={licenseNumber}
           onChange={(e) => setLicenseNumber(e.target.value.toUpperCase())}
-          placeholder="e.g. MOH-LIC-001"
+          placeholder="Enter license number"
           disabled={saving}
         />
       </div>

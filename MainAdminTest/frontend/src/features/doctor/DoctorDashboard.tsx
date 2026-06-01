@@ -2220,7 +2220,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                             style={styles.input}
                             value={test.testName}
                             onChange={(e) => updateLabTest(index, "testName", textOnlyValue(e.target.value))}
-                            placeholder="e.g., Complete Blood Count"
+                            placeholder="Enter test name"
                             disabled={savingLabRequest}
                           />
                         </div>
