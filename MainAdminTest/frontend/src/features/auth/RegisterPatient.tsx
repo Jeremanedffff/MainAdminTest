@@ -1,12 +1,11 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
   loadActiveHospitals,
-  loadAllowedCountryCodes,
   registerPatientFirestore,
-  type CountryCodeOption,
   type HospitalOption,
 } from "./authFirestoreDb";
 import { digitsOnlyInput, lettersOnlyInput, validateMeaningfulLetters } from "../../utils/formValidation";
+import "./LoginPage.css";
 import {
   ArrowLeft,
   BadgePlus,
@@ -24,9 +23,9 @@ type Props = {
   onRegistered: (user: { role: "PATIENT"; userId: string; fullName?: string }) => void;
 };
 
+const LESOTHO_COUNTRY_CODE = "+266";
+
 const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
-  const [countryCodeOptions, setCountryCodeOptions] = useState<CountryCodeOption[]>([]);
-  const [countryCode, setCountryCode] = useState("+266");
   const [fullName, setFullName] = useState("");
   const [sex, setSex] = useState<"MALE" | "FEMALE">("FEMALE");
   const [age, setAge] = useState<number>(18);
@@ -47,12 +46,10 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
       setErr("");
 
       try {
-        const [rows, codes] = await Promise.all([loadActiveHospitals(), loadAllowedCountryCodes()]);
+        const rows = await loadActiveHospitals();
         setHospitals(rows);
-        setCountryCodeOptions(codes);
 
         if (rows.length > 0) setHospitalId(rows[0].hospitalId);
-        if (codes.length > 0) setCountryCode(codes[0].code);
       } catch (e: any) {
         console.error("LOAD HOSPITAL OPTIONS ERROR:", e);
         setErr(e?.message || "Failed to load hospitals.");
@@ -84,10 +81,6 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
     return `${selectedHospital.districtCode}-${selectedHospital.hospitalCode}-0001`;
   }, [selectedHospital]);
 
-  const selectedCountry = useMemo(() => {
-    return countryCodeOptions.find((option) => option.code === countryCode) || null;
-  }, [countryCodeOptions, countryCode]);
-
   const submit = async () => {
     setErr("");
     setLoading(true);
@@ -95,7 +88,7 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
     const name = fullName.trim();
     const ph = phone.trim();
     const digits = ph.replace(/\D/g, "");
-    const normalizedPhone = `${countryCode} ${digits}`.trim();
+    const normalizedPhone = `${LESOTHO_COUNTRY_CODE} ${digits}`.trim();
 
     const nameWarning = validateMeaningfulLetters(name, "Full name", { minWords: 2 });
 
@@ -111,20 +104,8 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
       return;
     }
 
-    if (countryCodeOptions.length === 0) {
-      setErr("Phone country codes are still loading. Please try again.");
-      setLoading(false);
-      return;
-    }
-
-    if (!countryCode) {
-      setErr("Please choose a country code.");
-      setLoading(false);
-      return;
-    }
-
     if (ph.startsWith("+")) {
-      setErr("Enter the phone number without the country code. Choose the country code from the dropdown.");
+      setErr("Enter the Lesotho phone number without +266.");
       setLoading(false);
       return;
     }
@@ -135,14 +116,8 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
       return;
     }
 
-    if (countryCode === "+266" && digits.length !== 8) {
-      setErr("Invalid phone number for Lesotho. Enter exactly 8 digits after selecting +266.");
-      setLoading(false);
-      return;
-    }
-
-    if (countryCode !== "+266" && digits.length < 6) {
-      setErr("Invalid phone number. Enter the local number after choosing the country code.");
+    if (digits.length !== 8) {
+      setErr("Invalid phone number for Lesotho. Enter exactly 8 digits after +266.");
       setLoading(false);
       return;
     }
@@ -187,8 +162,8 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
   };
 
   return (
-    <div style={styles.page}>
-      <div style={{ ...styles.container, ...(isCompact ? styles.containerCompact : {}) }}>
+    <div className="login-shell register-shell" style={styles.page}>
+      <div className="login-stage" style={{ ...styles.container, ...(isCompact ? styles.containerCompact : {}) }}>
         <div style={{ ...styles.leftPanel, ...(isCompact ? styles.leftPanelCompact : {}) }}>
           <div style={styles.heroBadge}>
             <BadgePlus size={16} />
@@ -223,7 +198,7 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
           </div>
         </div>
 
-        <div style={{ ...styles.card, ...(isCompact ? styles.cardCompact : {}), ...(isPhone ? styles.cardPhone : {}) }}>
+        <div className="login-card register-card" style={{ ...styles.card, ...(isCompact ? styles.cardCompact : {}), ...(isPhone ? styles.cardPhone : {}) }}>
           {err ? <div style={styles.error}>{err}</div> : null}
 
           <label style={styles.label}>
@@ -285,43 +260,23 @@ const RegisterPatient: React.FC<Props> = ({ onBackToLogin, onRegistered }) => {
             </label>
           </div>
 
-          <div style={{ ...styles.grid2, ...(isPhone ? styles.grid2Phone : {}) }}>
-            <label style={styles.label}>
-              Country Code
-              <select
-                style={styles.input}
-                value={countryCode}
-                onChange={(e) => setCountryCode(e.target.value)}
-                disabled={loading || countryCodeOptions.length === 0}
-              >
-                {countryCodeOptions.map((option) => (
-                  <option key={option.code} value={option.code}>
-                    {option.flag} {option.country} ({option.code})
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label style={styles.label}>
-              Phone
-              <div style={styles.inputWrap}>
-                <Phone size={18} style={styles.fieldIcon} />
-                <input
-                  style={styles.inputInset}
-                  value={phone}
-                  onChange={(e) => setPhone(digitsOnlyInput(e.target.value))}
-                  placeholder={countryCode === "+266" ? "e.g. 56560000" : "Enter local number"}
-                  maxLength={countryCode === "+266" ? 8 : undefined}
-                />
-              </div>
-            </label>
-          </div>
-
-          {selectedCountry ? (
-            <div style={styles.phoneHint}>
-              Selected: <b>{selectedCountry.flag} {selectedCountry.country}</b>. Enter the phone number without the country code.
+          <label style={styles.label}>
+            Phone
+            <div style={styles.inputWrap}>
+              <Phone size={18} style={styles.fieldIcon} />
+              <input
+                style={styles.inputInset}
+                value={phone}
+                onChange={(e) => setPhone(digitsOnlyInput(e.target.value))}
+                placeholder="e.g. 56560000"
+                maxLength={8}
+              />
             </div>
-          ) : null}
+          </label>
+
+          <div style={styles.phoneHint}>
+            Lesotho only: <b>{LESOTHO_COUNTRY_CODE}</b>. Enter the 8-digit phone number without the country code.
+          </div>
 
           <label style={styles.label}>
             Email (optional)
@@ -474,7 +429,9 @@ const styles: Record<string, React.CSSProperties> = {
     boxShadow: "0 10px 24px rgba(116, 142, 170, 0.08)",
   },
   inputWrap: {
-    position: "relative",
+    display: "grid",
+    gridTemplateColumns: "44px minmax(0, 1fr)",
+    alignItems: "center",
     borderRadius: 16,
     border: "1px solid #d6e4f0",
     background: "white",
@@ -486,15 +443,12 @@ const styles: Record<string, React.CSSProperties> = {
     outline: "none",
     background: "transparent",
     color: "#16324f",
-    padding: "14px 14px 14px 42px",
+    padding: "14px 14px 14px 0",
     fontWeight: 800,
     fontSize: 14,
   },
   fieldIcon: {
-    position: "absolute",
-    left: 14,
-    top: "50%",
-    transform: "translateY(-50%)",
+    justifySelf: "center",
     color: "#2f7fc9",
   },
   grid2: {

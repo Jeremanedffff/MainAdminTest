@@ -1,15 +1,21 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  Activity,
+  ArrowLeft,
   BookOpen,
   BrainCircuit,
   Building2,
+  CalendarCheck,
   CheckCircle2,
-  ChevronDown,
-  FileText,
+  ClipboardPlus,
   FlaskConical,
+  FolderOpen,
+  Heart,
+  PenLine,
   Pill,
-  Send,
+  Save,
   Sparkles,
+  Stethoscope,
   X,
 } from "lucide-react";
 import "./DoctorDashboard.css";
@@ -17,10 +23,10 @@ import {
   addPatientNoteFirestore,
   createPrescriptionFirestore,
   loadPatientNotes,
-  loadAllPatients,
   loadPatientsByHospital,
   searchPatientsAcrossHospitals,
   createLabRequest,
+  updatePatientClinicalFactsFirestore,
   type PatientNoteRow,
   type PatientRow,
   type PrescriptionItem,
@@ -64,6 +70,7 @@ type AiMedicationAdvice = {
   patient_context: {
     symptoms?: string[];
     current_or_recent_medications?: string[];
+    demographics?: Record<string, any>;
     possible_allergy_flags?: string[];
     doctor_question?: string;
     source_note_title?: string;
@@ -89,6 +96,11 @@ type AiMedicationAdvice = {
   data_completeness?: string;
 };
 
+type InsightCondition = {
+  name: string;
+  confidence?: number;
+};
+
 const renderSummaryListItem = (item: SummaryListItem) => {
   if (typeof item === "string") return item;
 
@@ -105,10 +117,150 @@ const renderSummaryListItem = (item: SummaryListItem) => {
   return details.length ? `${title} - ${details.join("; ")}` : title;
 };
 
+const uniqueItems = (items: string[]) =>
+  Array.from(new Set(items.map((item) => item.trim()).filter(Boolean)));
+
+const summaryItemTitle = (item: SummaryListItem) => {
+  if (typeof item === "string") return item;
+  return item.name || item.medication || item.clinical_indication || renderSummaryListItem(item);
+};
+
+const formatConfidencePercent = (confidence: number) =>
+  `${Math.round(confidence <= 1 ? confidence * 100 : confidence)}%`;
+
+const textOnlyValue = (value: string) => value.replace(/[0-9]/g, "");
+const numericOnlyValue = (value: string) => value.replace(/[^0-9.]/g, "");
+const bloodPressureValue = (value: string) => value.replace(/[^0-9/\s]/g, "");
+const presentationSafeText = (value?: string, fallback = "") => {
+  const text = String(value || "").replace(/\s+/g, " ").trim();
+  const blocked = [
+    "use this row for disease-prediction training",
+    "until disease-specific guideline treatment",
+    "treatment_text_requires",
+    "patient_reported_not_prescribing_guidance",
+    "dataset completeness",
+  ];
+
+  return text && !blocked.some((phrase) => text.toLowerCase().includes(phrase)) ? text : fallback;
+};
+const displayClinicalText = (value: string) => value.replace(/_/g, " ").replace(/\b\w/g, (letter) => letter.toUpperCase());
+
+const chronicConditionTerms = [
+  "Hypertension",
+  "Diabetes",
+  "Asthma",
+  "HIV/AIDS",
+  "Epilepsy",
+  "Cancer",
+  "Tuberculosis",
+  "Kidney Disease",
+  "Heart Disease",
+  "Sickle Cell Disease",
+];
+
+const chronicConditionPatterns: Record<string, RegExp[]> = {
+  "Hypertension": [/\bhypertension\b/i, /\bhigh blood pressure\b/i],
+  "Diabetes": [/\bdiabetes\b/i, /\bdiabetic\b/i],
+  "Asthma": [/\basthma\b/i, /\basthmatic\b/i],
+  "HIV/AIDS": [/\bhiv\b/i, /\baids\b/i],
+  "Epilepsy": [/\bepilepsy\b/i, /\bepileptic\b/i, /\bseizure disorder\b/i],
+  "Cancer": [/\bcancer\b/i, /\bmalignancy\b/i],
+  "Tuberculosis": [/\btuberculosis\b/i, /\btb\b/i],
+  "Kidney Disease": [/\bkidney disease\b/i, /\brenal disease\b/i, /\bchronic kidney\b/i],
+  "Heart Disease": [/\bheart disease\b/i, /\bcardiac disease\b/i, /\bheart failure\b/i],
+  "Sickle Cell Disease": [/\bsickle cell\b/i],
+};
+
+const normalizeAllergyText = (value: string) =>
+  value
+    .replace(/\b(and|or|with|reaction|reactions|rash|hives|anaphylaxis|unknown)\b/gi, " ")
+    .replace(/[.;,]+$/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+
+const extractClinicalFactsFromNotes = (patientNotes: PatientNoteRow[]) => {
+  const noteText = patientNotes.map((row) => `${row.title || ""}\n${row.note || ""}`).join("\n");
+  const chronicConditions = chronicConditionTerms.filter((condition) =>
+    chronicConditionPatterns[condition]?.some((pattern) => pattern.test(noteText))
+  );
+
+  const allergyMatches = new Set<string>();
+  const allergyPatterns = [
+    /\ballerg(?:y|ic|ies)\s*(?:to|:|-)?\s*([a-z0-9 /+-]{2,48})/gi,
+    /\b(?:drug|food)\s+allergies?\s*(?:to|:|-)?\s*([a-z0-9 /+-]{2,48})/gi,
+    /\badverse reaction\s*(?:to|:|-)?\s*([a-z0-9 /+-]{2,48})/gi,
+  ];
+
+  allergyPatterns.forEach((pattern) => {
+    for (const match of noteText.matchAll(pattern)) {
+      const allergy = normalizeAllergyText(match[1] || "");
+      if (allergy && !/\b(no|none|nil|not known|nka)\b/i.test(allergy)) {
+        allergyMatches.add(allergy.replace(/\b\w/g, (letter) => letter.toUpperCase()));
+      }
+    }
+  });
+
+  const bloodGroupMatch = noteText.match(
+    /\b(?:blood group|blood type|abo(?:\/rh)?|grouping)\s*(?:is|:|-)?\s*(A|B|AB|O)\s*(positive|negative|pos|neg|\+|-)?\b/i
+  );
+  const bloodGroup = bloodGroupMatch
+    ? `${bloodGroupMatch[1].toUpperCase()}${bloodGroupMatch[2] ? (/[+-]|pos|positive/i.test(bloodGroupMatch[2]) ? "+" : "-") : ""}`
+    : "";
+
+  return {
+    chronicConditions,
+    allergies: allergyMatches.size ? Array.from(allergyMatches).join(", ") : "None",
+    bloodGroup,
+  };
+};
+
+const createEmptyAssessment = () => ({
+  temperature: "",
+  bloodPressure: "",
+  heartRate: "",
+  respiratoryRate: "",
+  oxygenSaturation: "",
+  bloodGlucose: "",
+  weight: "",
+  height: "",
+  bmi: "",
+  chiefComplaint: "",
+  duration: "",
+  painLevel: "",
+  symptoms: [] as string[],
+  hivTest: "",
+  pregnancyTest: "",
+  malariaTest: "",
+  covidTest: "",
+  tuberculosisScreening: "",
+  hepatitisBTest: "",
+  urineTest: "",
+  bloodGroupTest: "",
+  chronicConditions: [] as string[],
+  otherCondition: "",
+  currentMedications: "",
+  drugAllergies: "",
+  foodAllergies: "",
+  generalAppearance: "",
+  skinCondition: "",
+  respiratoryExam: "",
+  cardiovascularExam: "",
+  abdominalExam: "",
+  neurologicalExam: "",
+  diagnosis: "",
+  followUpDate: "",
+});
+
+type AssessmentState = ReturnType<typeof createEmptyAssessment>;
+
+const filledAssessmentEntries = (assessment: AssessmentState) =>
+  Object.entries(assessment).filter(([, value]) =>
+    Array.isArray(value) ? value.length > 0 : String(value || "").trim().length > 0
+  );
+
 const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
   const [patients, setPatients] = useState<PatientRow[]>([]);
   const [loadingPatients, setLoadingPatients] = useState(true);
-  const [showingAllPatientsFallback, setShowingAllPatientsFallback] = useState(false);
 
   const [selectedPatient, setSelectedPatient] = useState<PatientRow | null>(null);
   const [notes, setNotes] = useState<PatientNoteRow[]>([]);
@@ -128,7 +280,6 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
   const [aiMedicationAdvice, setAiMedicationAdvice] = useState<AiMedicationAdvice | null>(null);
   const [aiMedicationAdviceNoteId, setAiMedicationAdviceNoteId] = useState("");
   const [loadingMedicationAdvice, setLoadingMedicationAdvice] = useState(false);
-  const [showAiOptions, setShowAiOptions] = useState(false);
 
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
@@ -146,6 +297,40 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
   const [showPatientHistory, setShowPatientHistory] = useState(false);
   const [currentNoteIndex, setCurrentNoteIndex] = useState(0);
+  const [assessment, setAssessment] = useState(createEmptyAssessment);
+
+  const patientClinicalFacts = useMemo(() => extractClinicalFactsFromNotes(notes), [notes]);
+  const currentBloodGroup =
+    assessment.bloodGroupTest && assessment.bloodGroupTest !== "Pending"
+      ? assessment.bloodGroupTest
+      : selectedPatient?.bloodGroup || patientClinicalFacts.bloodGroup;
+
+  const updateAssessment = (field: keyof typeof assessment, value: string | string[]) => {
+    setAssessment((current) => ({ ...current, [field]: value }));
+  };
+
+  const updateTextOnlyAssessment = (field: keyof typeof assessment, value: string) => {
+    updateAssessment(field, textOnlyValue(value));
+  };
+
+  const updateNumericAssessment = (field: keyof typeof assessment, value: string) => {
+    updateAssessment(field, field === "bloodPressure" ? bloodPressureValue(value) : numericOnlyValue(value));
+  };
+
+  const toggleAssessmentListValue = (
+    field: "symptoms" | "chronicConditions",
+    value: string
+  ) => {
+    setAssessment((current) => {
+      const existing = current[field];
+      return {
+        ...current,
+        [field]: existing.includes(value)
+          ? existing.filter((item) => item !== value)
+          : [...existing, value],
+      };
+    });
+  };
 
   useEffect(() => {
     const run = async () => {
@@ -153,8 +338,6 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       setError("");
 
       try {
-        setShowingAllPatientsFallback(false);
-
         if (!hospitalId) {
           setError("Doctor hospital ID is missing.");
           setPatients([]);
@@ -164,21 +347,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
         try {
           const rows = await loadPatientsByHospital(hospitalId);
           setPatients(rows);
-
-          if (rows.length === 0) {
-            const allRegisteredPatients = await loadAllPatients();
-            setPatients(allRegisteredPatients);
-
-            if (allRegisteredPatients.length === 0) {
-              setError("No registered patients found. Please register patients first.");
-              return;
-            }
-
-            setShowingAllPatientsFallback(true);
-            setError(
-              "No patients are assigned to this doctor's hospital yet. Showing all registered patients so you can continue."
-            );
-          }
+          if (rows.length === 0) setSelectedPatient(null);
         } catch (e: any) {
           console.error("LOAD DOCTOR PATIENTS ERROR:", e);
           setError(e?.message || "Failed to load patients. Please check your connection and try again.");
@@ -200,12 +369,23 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
   useEffect(() => {
     const run = async () => {
+      setAssessment(createEmptyAssessment());
+      setTitle("");
+      setNote("");
+      setPrescriptionNotes("");
+      setPrescriptionItems([]);
+      setShowPrescriptionForm(false);
+      setLabTests([]);
+      setLabPriority("ROUTINE");
+      setLabClinicalNotes("");
+      setShowLabRequestForm(false);
+      setCurrentNoteIndex(0);
+
       if (!selectedPatient) {
         setNotes([]);
         setAiSummary(null);
         setAiMedicationAdvice(null);
         setAiMedicationAdviceNoteId("");
-        setShowAiOptions(false);
         return;
       }
 
@@ -219,7 +399,6 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
         setAiSummary(null);
         setAiMedicationAdvice(null);
         setAiMedicationAdviceNoteId("");
-        setShowAiOptions(false);
       } catch (e: any) {
         console.error("LOAD PATIENT NOTES ERROR:", e);
         setError(e?.message || "Failed to load notes.");
@@ -242,6 +421,107 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
   const doctorName = useMemo(() => `Doctor ${doctorId}`, [doctorId]);
 
+  const returnToPatientList = () => {
+    setSelectedPatient(null);
+    setShowPatientHistory(false);
+    setShowPrescriptionForm(false);
+    setShowLabRequestForm(false);
+  };
+
+  const buildCurrentAssessmentNote = () => {
+    const rows = [
+      ["Temperature", assessment.temperature],
+      ["Blood Pressure", assessment.bloodPressure],
+      ["Heart Rate", assessment.heartRate],
+      ["Respiratory Rate", assessment.respiratoryRate],
+      ["Oxygen Saturation", assessment.oxygenSaturation],
+      ["Blood Glucose", assessment.bloodGlucose],
+      ["Weight", assessment.weight],
+      ["Height", assessment.height],
+      ["BMI", assessment.bmi],
+      ["Chief Complaint", assessment.chiefComplaint],
+      ["Duration", assessment.duration],
+      ["Pain Level", assessment.painLevel],
+      ["Symptoms", assessment.symptoms.join(", ")],
+      ["HIV Test", assessment.hivTest],
+      ["Pregnancy Test", assessment.pregnancyTest],
+      ["Malaria Test", assessment.malariaTest],
+      ["COVID-19 Test", assessment.covidTest],
+      ["Tuberculosis Screening", assessment.tuberculosisScreening],
+      ["Hepatitis B Test", assessment.hepatitisBTest],
+      ["Urine Test", assessment.urineTest],
+      ["Blood Group Test", assessment.bloodGroupTest],
+      ["Chronic Conditions Checked", assessment.chronicConditions.join(", ")],
+      ["Other Condition", assessment.otherCondition],
+      ["Current Medications", assessment.currentMedications],
+      ["Drug Allergies", assessment.drugAllergies],
+      ["Food Allergies", assessment.foodAllergies],
+      ["General Appearance", assessment.generalAppearance],
+      ["Skin Condition", assessment.skinCondition],
+      ["Respiratory Exam", assessment.respiratoryExam],
+      ["Cardiovascular Exam", assessment.cardiovascularExam],
+      ["Abdominal Exam", assessment.abdominalExam],
+      ["Neurological Exam", assessment.neurologicalExam],
+      ["Assessment Note", note],
+      ["Provisional Diagnosis", title],
+      ["Consultation Notes", prescriptionNotes],
+      ["Treatment Plan or Lab Notes", labClinicalNotes],
+    ]
+      .map(([label, value]) => [label, String(value || "").trim()])
+      .filter(([, value]) => value);
+
+    if (!rows.length) return "";
+
+    return [
+      "Title: Current unsaved doctor assessment",
+      `Doctor: ${doctorName}`,
+      `Date: ${new Date().toISOString()}`,
+      "Note: Current assessment entries from the doctor dashboard:",
+      ...rows.map(([label, value]) => `${label}: ${value}`),
+    ].join("\n");
+  };
+
+  const buildPersistedAssessmentNote = () => {
+    const assessmentNote = buildCurrentAssessmentNote();
+    const parts = [
+      assessmentNote.replace(/^Title: Current unsaved doctor assessment\n/, ""),
+      prescriptionItems.length
+        ? [
+            "Prescription Draft:",
+            ...prescriptionItems.map((item) =>
+              `- ${item.drugName || "Unnamed medication"}${item.dosage ? `, dosage ${item.dosage}` : ""}${item.frequency ? `, frequency ${item.frequency}` : ""}, ${item.days} day${item.days === 1 ? "" : "s"}`
+            ),
+          ].join("\n")
+        : "",
+    ].filter(Boolean);
+
+    return parts.join("\n\n").trim();
+  };
+
+  const buildSavedPatientNotesData = () =>
+    notes.map((n) => {
+      const linkedMedications = n.linkedPrescriptions?.length
+        ? `Linked prescriptions sent to pharmacy:\n${n.linkedPrescriptions
+            .map((rx) => `- ${rx.prescriptionId}: ${rx.medicationSummary}`)
+            .join("\n")}`
+        : "";
+
+      return [
+        `Title: ${n.title}`,
+        `Doctor: ${n.doctorName}`,
+        `Date: ${n.createdAtISO}`,
+        `Note: ${n.note}`,
+        linkedMedications,
+      ]
+        .filter(Boolean)
+        .join("\n");
+    });
+
+  const buildAiNotesData = () => {
+    const assessmentNote = buildCurrentAssessmentNote();
+    return [...buildSavedPatientNotesData(), ...(assessmentNote ? [assessmentNote] : [])];
+  };
+
   const saveNote = async () => {
     if (!selectedPatient) {
       setError("Please select a patient first.");
@@ -251,13 +531,13 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
     setError("");
     setSuccess("");
 
-    if (!title.trim()) {
-      setError("Note title is required.");
-      return;
-    }
+    const persistedAssessmentNote = buildPersistedAssessmentNote();
+    const hasAssessmentData = filledAssessmentEntries(assessment).length > 0;
+    const cleanTitle = title.trim() || `Clinical Assessment - ${new Date().toLocaleDateString("en-GB")}`;
+    const cleanNote = note.trim() || persistedAssessmentNote;
 
-    if (!note.trim()) {
-      setError("Note body is required.");
+    if (!hasAssessmentData && !cleanNote.trim()) {
+      setError("Please enter assessment information before saving.");
       return;
     }
 
@@ -269,9 +549,57 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
         hospitalId,
         doctorId,
         doctorName,
-        title,
-        note,
+        title: cleanTitle,
+        note: cleanNote,
+        assessment: {
+          ...assessment,
+          prescriptionDraft: prescriptionItems,
+          consultationNotes: prescriptionNotes,
+          treatmentPlanOrLabNotes: labClinicalNotes,
+          savedAtISO: new Date().toISOString(),
+        },
       });
+
+      const savedAllergies = [assessment.drugAllergies, assessment.foodAllergies]
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .join(", ");
+      const savedConditions = [
+        ...assessment.chronicConditions,
+        ...(assessment.otherCondition.trim() ? [assessment.otherCondition.trim()] : []),
+      ];
+
+      if (assessment.bloodGroupTest || savedAllergies || savedConditions.length) {
+        await updatePatientClinicalFactsFirestore({
+          patientId: selectedPatient.id,
+          bloodGroup: assessment.bloodGroupTest && assessment.bloodGroupTest !== "Pending" ? assessment.bloodGroupTest : currentBloodGroup,
+          chronicConditions: savedConditions.length ? savedConditions : undefined,
+          allergies: savedAllergies || undefined,
+        });
+
+        setSelectedPatient((current) =>
+          current
+            ? {
+                ...current,
+                bloodGroup: assessment.bloodGroupTest && assessment.bloodGroupTest !== "Pending" ? assessment.bloodGroupTest : current.bloodGroup,
+                chronicConditions: savedConditions.length ? savedConditions : current.chronicConditions,
+                allergies: savedAllergies || current.allergies,
+              }
+            : current
+        );
+        setPatients((current) =>
+          current.map((patient) =>
+            patient.id === selectedPatient.id
+              ? {
+                  ...patient,
+                  bloodGroup: assessment.bloodGroupTest && assessment.bloodGroupTest !== "Pending" ? assessment.bloodGroupTest : patient.bloodGroup,
+                  chronicConditions: savedConditions.length ? savedConditions : patient.chronicConditions,
+                  allergies: savedAllergies || patient.allergies,
+                }
+              : patient
+          )
+        );
+      }
 
       const rows = await loadPatientNotes(selectedPatient.id);
       setNotes(rows);
@@ -280,7 +608,8 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       setAiSummary(null);
       setAiMedicationAdvice(null);
       setAiMedicationAdviceNoteId("");
-      setSuccess(`Patient note saved successfully. Prescriptions will link to "${savedNote.title}".`);
+      setSuccess(`Assessment saved successfully. Future prescriptions will link to "${savedNote.title}".`);
+      setSelectedPatient(null);
     } catch (e: any) {
       console.error("SAVE PATIENT NOTE ERROR:", e);
       setError(e?.message || "Failed to save note.");
@@ -291,30 +620,15 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
   const buildLatestSavedPatientNoteForMedicationAI = () => {
     const latestNote = notes[0];
+    const notesData = buildAiNotesData();
 
-    if (!latestNote) {
-      throw new Error("Save a patient note first. Medication options are based only on the latest saved note.");
+    if (!notesData.length) {
+      throw new Error("Enter assessment information or save a patient note before asking AI for medication options.");
     }
-
-    const linkedMedications = latestNote.linkedPrescriptions?.length
-      ? `Linked prescriptions sent to pharmacy:\n${latestNote.linkedPrescriptions
-          .map((rx) => `- ${rx.prescriptionId}: ${rx.medicationSummary}`)
-          .join("\n")}`
-      : "";
 
     return {
       latestNote,
-      notesData: [
-        [
-          `Title: ${latestNote.title}`,
-          `Doctor: ${latestNote.doctorName}`,
-          `Date: ${latestNote.createdAtISO}`,
-          `Note: ${latestNote.note}`,
-          linkedMedications,
-        ]
-          .filter(Boolean)
-          .join("\n"),
-      ],
+      notesData,
     };
   };
 
@@ -335,8 +649,12 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
         },
         body: JSON.stringify({
           patient_id: selectedPatient.id,
+          demographics: {
+            age: selectedPatient.age,
+            gender: selectedPatient.sex,
+          },
           notes: notesData,
-          question: `Analyze the latest saved note "${latestNote.title}" and suggest medication options that fit the patient's documented condition and symptoms.`,
+          question: `Analyze this patient's saved notes plus the current doctor assessment entries and suggest medication options that fit the documented condition and symptoms.`,
         }),
         signal: controller.signal,
       });
@@ -348,7 +666,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
       const data = (await response.json()) as AiMedicationAdvice;
       setAiMedicationAdvice(data);
-      setAiMedicationAdviceNoteId(latestNote.id);
+      setAiMedicationAdviceNoteId(latestNote?.id || "current-assessment");
       return { latestNote, data };
     } finally {
       clearTimeout(timeoutId);
@@ -362,7 +680,6 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
     }
 
     setLoadingSummary(true);
-    setShowAiOptions(false);
     setError("");
     setSuccess("");
 
@@ -371,33 +688,20 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       console.log("Patient:", selectedPatient.id);
       console.log("Available notes:", notes.length);
       
-      // Prepare notes data
-      let notesData = [];
-      
-      if (notes.length > 0) {
-        // Use real notes from database
-        notesData = notes.map((n) => {
-          const linkedMedications = n.linkedPrescriptions?.length
-            ? `Linked prescriptions sent to pharmacy:\n${n.linkedPrescriptions
-                .map((rx) => `- ${rx.prescriptionId}: ${rx.medicationSummary}`)
-                .join("\n")}`
-            : "";
+      const notesData = buildAiNotesData();
 
-          return [
-            `Title: ${n.title}`,
-            `Doctor: ${n.doctorName}`,
-            `Date: ${n.createdAtISO}`,
-            `Note: ${n.note}`,
-            linkedMedications,
-          ].join("\n");
-        });
-        console.log("Using real database notes:", notesData.length);
-      } else {
-        throw new Error("Save at least one patient note before generating an AI summary.");
+      if (notesData.length === 0) {
+        throw new Error("Enter assessment information or save at least one patient note before generating AI insights.");
       }
+
+      console.log("Using patient notes plus current assessment entries:", notesData.length);
       
       const requestBody = {
         patient_id: selectedPatient.id,
+        demographics: {
+          age: selectedPatient.age,
+          gender: selectedPatient.sex,
+        },
         notes: notesData,
       };
       
@@ -435,7 +739,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
     } catch (e: any) {
       console.error("AI SUMMARY ERROR:", e);
 
-      if (e?.message?.includes("Save at least one patient note")) {
+      if (e?.message?.includes("Enter assessment information")) {
         setAiSummary(null);
         setError(e.message);
         return;
@@ -456,13 +760,16 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
     }
 
     setLoadingMedicationAdvice(true);
-    setShowAiOptions(false);
     setError("");
     setSuccess("");
 
     try {
       const { latestNote } = await requestMedicationAdviceForLatestNote();
-      setSuccess(`AI medication options generated from latest saved note: "${latestNote.title}".`);
+      setSuccess(
+        latestNote
+          ? `AI medication options generated from patient notes and current assessment: "${latestNote.title}".`
+          : "AI medication options generated from the current assessment entries."
+      );
     } catch (e: any) {
       console.error("AI MEDICATION RECOMMENDATION ERROR:", e);
       setError(e?.name === "AbortError" ? "AI medication recommendation took too long. Please try again." : e?.message || "Failed to generate medication advice.");
@@ -522,6 +829,65 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       );
     });
   };
+
+  const insightConditions: InsightCondition[] = useMemo(() => {
+    if (aiMedicationAdvice?.disease_predictions?.length) {
+      return aiMedicationAdvice.disease_predictions.slice(0, 4).map((prediction) => ({
+        name: prediction.disease,
+        confidence: prediction.confidence,
+      }));
+    }
+
+    if (aiSummary?.main_conditions?.length) {
+      return aiSummary.main_conditions.slice(0, 4).map((condition) => ({
+        name: summaryItemTitle(condition),
+      }));
+    }
+
+    return [];
+  }, [aiMedicationAdvice, aiSummary]);
+
+  const insightRecommendedTests = useMemo(() => {
+    const testsFromSummary = uniqueItems(
+      (aiSummary?.important_tests_already_done_or_ordered || [])
+        .map((item) => summaryItemTitle(item))
+        .filter((item) => !/no important tests|none detected/i.test(item))
+    );
+
+    return uniqueItems([
+      ...(!currentBloodGroup ? ["Blood Group"] : []),
+      ...testsFromSummary,
+    ]).slice(0, 5);
+  }, [aiSummary, currentBloodGroup]);
+
+  const insightRisk = useMemo(() => {
+    if (!aiSummary) {
+      return {
+        level: notes.length ? "Awaiting AI review" : "No notes yet",
+        text: notes.length
+          ? `Generate AI Insights to analyze ${notes.length} saved patient note${notes.length === 1 ? "" : "s"}.`
+          : "Save or load patient notes before generating clinical insights.",
+      };
+    }
+
+    const complexity = (aiSummary.clinical_complexity || "").trim();
+    const level = complexity
+      ? `${complexity.charAt(0).toUpperCase()}${complexity.slice(1)} Complexity`
+      : "AI Reviewed";
+    const text =
+      aiSummary.red_flags?.[0] ||
+      aiSummary.doctor_attention_points?.map((item) => renderSummaryListItem(item))[0] ||
+      aiSummary.recommendations?.[0] ||
+      aiSummary.patient_overview ||
+      "AI insights generated from this patient's saved notes.";
+
+    return { level, text };
+  }, [aiSummary, notes.length]);
+
+  const medicationPatientSignals = useMemo(() => {
+    const backendSymptoms = aiMedicationAdvice?.patient_context?.symptoms || [];
+    return uniqueItems([...backendSymptoms, ...assessment.symptoms].map((item) => displayClinicalText(item)));
+  }, [aiMedicationAdvice, assessment.symptoms]);
 
   const addPrescriptionItem = () => {
     setPrescriptionItems([
@@ -619,6 +985,10 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       body: JSON.stringify({
         patient_id: selectedPatient.id,
         doctor_id: doctorId,
+        demographics: {
+          age: selectedPatient.age,
+          gender: selectedPatient.sex,
+        },
         notes: feedbackNotes,
         treatments: items,
         treatment_notes: prescriptionNotes,
@@ -767,6 +1137,90 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
     }
   };
 
+  const openLabRequestWithBloodGroupCheck = () => {
+    if (!currentBloodGroup) {
+      const hasBloodGroupTest = labTests.some((test) => /blood\s*(group|type)|abo|rh/i.test(test.testName));
+      if (!hasBloodGroupTest) {
+        setLabTests((current) => [
+          {
+            id: `TEST-BLOOD-GROUP-${Date.now()}`,
+            testName: "Blood Group",
+            testCode: "ABO-RH",
+            category: "Blood",
+            description: "Confirm ABO and Rh blood group before assigning blood group to the patient profile.",
+            instructions: "Enter the confirmed blood group result only after laboratory testing.",
+          },
+          ...current,
+        ]);
+      }
+      setLabClinicalNotes((current) =>
+        current.trim()
+          ? current
+          : "Blood group is not confirmed in this patient's notes. Please test ABO/Rh blood group first."
+      );
+    }
+    setShowLabRequestForm(true);
+  };
+
+  const symptomOptions = [
+    "Fever",
+    "Fatigue",
+    "Chest Pain",
+    "Headache",
+    "Body Pain",
+    "Shortness of Breath",
+    "Vomiting",
+    "Sore Throat",
+    "Loss of Taste/Smell",
+    "Cough",
+    "Diarrhea",
+    "Others",
+  ];
+
+  const chronicConditionOptions = [
+    "Hypertension",
+    "Cancer",
+    "Diabetes",
+    "Epilepsy",
+    "Asthma",
+    "HIV/AIDS",
+    "Heart Disease",
+    "Tuberculosis",
+    "Kidney Disease",
+    "Other",
+  ];
+
+  const rapidTestResultOptions = ["Positive", "Negative", "Suspected", "Normal", "Pending"];
+  const bloodGroupOptions = ["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-", "Pending"];
+  const rapidResultTone = (value: string) => {
+    const normalized = value.toLowerCase();
+    if (normalized === "positive") return "positive";
+    if (normalized === "negative" || normalized === "normal") return "negative";
+    if (normalized === "suspected") return "suspected";
+    if (normalized === "pending") return "pending";
+    return "neutral";
+  };
+
+  const rapidTests = [
+    { field: "hivTest", label: "HIV Test", options: rapidTestResultOptions },
+    { field: "pregnancyTest", label: "Pregnancy Test", options: rapidTestResultOptions },
+    { field: "malariaTest", label: "Malaria Test", options: rapidTestResultOptions },
+    { field: "covidTest", label: "COVID-19 Test", options: rapidTestResultOptions },
+    { field: "tuberculosisScreening", label: "Tuberculosis Screening", options: rapidTestResultOptions },
+    { field: "hepatitisBTest", label: "Hepatitis B Test", options: rapidTestResultOptions },
+    { field: "urineTest", label: "Urine Test", options: rapidTestResultOptions },
+    { field: "bloodGroupTest", label: "Blood Group Test", options: bloodGroupOptions },
+  ] as const;
+
+  const physicalExamFields = [
+    ["generalAppearance", "General Appearance"],
+    ["skinCondition", "Skin Condition"],
+    ["respiratoryExam", "Respiratory Examination"],
+    ["cardiovascularExam", "Cardiovascular Examination"],
+    ["abdominalExam", "Abdominal Examination"],
+    ["neurologicalExam", "Neurological Examination"],
+  ] as const;
+
   return (
     <div className="doctor-dashboard" style={styles.page}>
       <div>
@@ -780,19 +1234,13 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       {error ? <div style={styles.error}>{error}</div> : null}
       {success ? <div style={styles.success}>{success}</div> : null}
 
-      <div style={styles.grid}>
+      <div style={selectedPatient ? styles.gridSelectedPatient : styles.grid}>
+        {!selectedPatient && (
         <div style={styles.panel}>
           <div style={styles.panelTitle}>Patients</div>
           <div style={styles.panelSub}>
-            {showingAllPatientsFallback
-              ? "No hospital-specific patients were found, so all registered patients are shown."
-              : "Search patients from your hospital or all hospitals."}
+            Search patients from your hospital, or use All Hospitals to find an external patient.
           </div>
-          {showingAllPatientsFallback && !showCrossHospitalSearch ? (
-            <div style={styles.infoNotice}>
-              Showing all registered patients. Select one to continue the consultation.
-            </div>
-          ) : null}
 
           <div style={styles.searchSection}>
             <div style={styles.searchToggle}>
@@ -833,9 +1281,9 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                 <div style={styles.loading}>Loading patients...</div>
               ) : filteredPatients.length === 0 ? (
                 <div style={styles.loading}>
-                  {showingAllPatientsFallback
-                    ? "No registered patients match this search."
-                    : "No patients found for this hospital."}
+                  {search.trim()
+                    ? "No patients in this hospital match this search."
+                    : "No patients are registered in this hospital. Use All Hospitals to search for any patient."}
                 </div>
               ) : (
                 <div style={styles.list}>
@@ -844,7 +1292,6 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                       key={p.id}
                       style={{
                         ...styles.patientBtn,
-                        ...(selectedPatient?.id === p.id ? styles.patientBtnActive : {}),
                       }}
                       onClick={() => setSelectedPatient(p)}
                     >
@@ -872,7 +1319,6 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                       key={p.id}
                       style={{
                         ...styles.patientBtn,
-                        ...(selectedPatient?.id === p.id ? styles.patientBtnActive : {}),
                         ...(p.hospitalId !== hospitalId ? styles.crossHospitalPatient : {}),
                       }}
                       onClick={() => setSelectedPatient(p)}
@@ -901,126 +1347,329 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
             </>
           )}
         </div>
+        )}
 
-        <div style={styles.panel}>
-          <div className="consultation-head">
-            <div>
-              <div style={styles.panelTitle}>Consultation Notes</div>
-              <div style={styles.panelSub}>
-                {selectedPatient ? `Write and review notes for ${selectedPatient.fullName}` : "Select a patient first."}
-              </div>
-            </div>
-            {selectedPatient ? (
-              <div className="consultation-count">
-                <span>{notes.length}</span>
-                <small>saved doctor note{notes.length === 1 ? "" : "s"}</small>
-              </div>
-            ) : null}
-          </div>
-
-          {selectedPatient && (
-            <div className="consultation-actions" aria-label="Consultation actions">
-              <button
-                className="consultation-action consultation-action-prescription"
-                onClick={openPrescriptionWithAiAnalysis}
-                disabled={loadingMedicationAdvice}
-              >
-                <span className="consultation-action-icon"><Send size={20} strokeWidth={2.4} /></span>
-                <span>{loadingMedicationAdvice ? "Analyzing Note" : "Send Prescription"}</span>
-                <small>{loadingMedicationAdvice ? "AI review" : "Pharmacy"}</small>
-              </button>
-              <button className="consultation-action consultation-action-lab" onClick={() => setShowLabRequestForm(true)}>
-                <span className="consultation-action-icon"><FlaskConical size={20} strokeWidth={2.4} /></span>
-                <span>Send Lab Request</span>
-                <small>Laboratory</small>
-              </button>
-              <button className="consultation-action consultation-action-history" onClick={() => setShowPatientHistory(true)}>
-                <span className="consultation-action-icon"><BookOpen size={20} strokeWidth={2.4} /></span>
-                <span>View History</span>
-                <small>Patient record</small>
-              </button>
-            </div>
-          )}
-
+        <div className="preconsult-shell">
           {selectedPatient ? (
             <>
-              <div style={styles.form}>
-                <label style={styles.label}>
-                  Note Title
-                  <input
-                    style={styles.input}
-                    value={title}
-                    onChange={(e) => setTitle(e.target.value)}
-                    placeholder="e.g. Consultation Summary"
-                    disabled={saving}
-                  />
-                </label>
-
-                <label style={styles.label}>
-                  Note
-                  <textarea
-                    style={styles.textarea}
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
-                    placeholder="Write symptoms, findings, diagnosis, treatment plan..."
-                    disabled={saving}
-                  />
-                </label>
-
-                <div style={styles.buttonRow}>
-                  <button style={styles.primaryBtn} onClick={saveNote} disabled={saving}>
-                    {saving ? "Saving..." : "Save Note"}
+              <div className="preconsult-topbar">
+                <div className="preconsult-titleRow">
+                  <button
+                    type="button"
+                    className="preconsult-backBtn"
+                    onClick={returnToPatientList}
+                    aria-label="Back to patient list"
+                  >
+                    <ArrowLeft size={18} />
                   </button>
-
-                  <div style={styles.aiAssistantWrap}>
-                    <button
-                      type="button"
-                      style={styles.aiAssistantBtn}
-                      onClick={() => setShowAiOptions((value) => !value)}
-                      disabled={loadingSummary || loadingMedicationAdvice}
-                    >
-                      <span style={styles.aiAssistantIcon}>
-                        <BrainCircuit size={20} />
-                      </span>
-                      <span style={styles.aiAssistantText}>
-                        <strong>
-                          {loadingSummary
-                            ? "Preparing summary..."
-                            : loadingMedicationAdvice
-                              ? "Checking prediction..."
-                              : "AI Assistant"}
-                        </strong>
-                        <small>Choose clinical insight</small>
-                      </span>
-                      <Sparkles size={16} />
-                      <ChevronDown size={18} />
-                    </button>
-
-                    {showAiOptions ? (
-                      <div style={styles.aiOptionsMenu}>
-                        <button type="button" style={styles.aiOptionItem} onClick={generateSummary}>
-                          <span style={styles.aiOptionIcon}>
-                            <FileText size={18} />
-                          </span>
-                          <span style={styles.aiOptionText}>
-                            <strong>Patient History Summary</strong>
-                            <small>Summarize saved clinical notes and patient history.</small>
-                          </span>
-                        </button>
-
-                        <button type="button" style={styles.aiOptionItem} onClick={recommendMedication}>
-                          <span style={styles.aiOptionIconAlt}>
-                            <Pill size={18} />
-                          </span>
-                          <span style={styles.aiOptionText}>
-                            <strong>Disease & Medication Prediction</strong>
-                            <small>Use the latest saved note to predict disease and suggest medication.</small>
-                          </span>
-                        </button>
-                      </div>
-                    ) : null}
+                  <div>
+                    <h2>Pre-Consultation Assessment</h2>
+                    <p>Capture patient vitals, history, and test results before consultation</p>
                   </div>
                 </div>
+                <button className="assessment-secondaryBtn" onClick={() => setShowPatientHistory(true)}>
+                  <BookOpen size={16} />
+                  View History
+                </button>
+              </div>
+
+              <section className="assessment-patientCard">
+                <div className="assessment-avatar">
+                  {selectedPatient.fullName
+                    .split(" ")
+                    .map((part) => part[0])
+                    .join("")
+                    .slice(0, 2)
+                    .toUpperCase()}
+                </div>
+                <div className="assessment-profileGrid">
+                  <div><span>Patient ID</span><b>{selectedPatient.id}</b></div>
+                  <div><span>Name</span><b>{selectedPatient.fullName}</b></div>
+                  <div><span>Age</span><b>{selectedPatient.age} Years</b></div>
+                  <div><span>Gender</span><b>{selectedPatient.sex === "MALE" ? "Male" : "Female"}</b></div>
+                  <div><span>Visit Date</span><b>{new Date().toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" })}</b></div>
+                  <div><span>Visit Type</span><b className="assessment-statusPill">Walk-in</b></div>
+                </div>
+                <div className="assessment-patientMeta">
+                  <div>
+                    <span>Chronic Conditions</span>
+                    {patientClinicalFacts.chronicConditions.length ? (
+                      patientClinicalFacts.chronicConditions.map((condition) => (
+                        <strong key={condition}>{condition}</strong>
+                      ))
+                    ) : (
+                      <b>None</b>
+                    )}
+                  </div>
+                  <div><span>Allergies</span><b>{patientClinicalFacts.allergies}</b></div>
+                  <div><span>Blood Group</span><b>{currentBloodGroup || "Test required"}</b></div>
+                  <div><span>Phone</span><b>{selectedPatient.phone || "Not captured"}</b></div>
+                </div>
+              </section>
+
+              <div className="assessment-grid">
+                <section className="assessment-card assessment-vitals">
+                  <h3><Activity size={18} /> 1. Vital Signs</h3>
+                  <div className="assessment-fieldGrid">
+                    {[
+                      ["temperature", "Temperature (C)"],
+                      ["bloodPressure", "Blood Pressure (mmHg)"],
+                      ["heartRate", "Heart Rate (BPM)"],
+                      ["respiratoryRate", "Respiratory Rate (RPM)"],
+                      ["oxygenSaturation", "Oxygen Saturation (%)"],
+                      ["bloodGlucose", "Blood Glucose (mmol/L)"],
+                      ["weight", "Weight (kg)"],
+                      ["height", "Height (cm)"],
+                      ["bmi", "BMI (kg/m2)"],
+                    ].map(([field, label]) => (
+                      <label key={field}>
+                        {label}
+                        <input
+                          inputMode={field === "bloodPressure" ? "text" : "decimal"}
+                          value={assessment[field as keyof typeof assessment] as string}
+                          onChange={(e) => updateNumericAssessment(field as keyof typeof assessment, e.target.value)}
+                        />
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="assessment-card">
+                  <h3><ClipboardPlus size={18} /> 2. Current Complaint</h3>
+                  <label className="assessment-wideField">
+                    Chief Complaint
+                    <input
+                      value={assessment.chiefComplaint}
+                      onChange={(e) => updateTextOnlyAssessment("chiefComplaint", e.target.value)}
+                    />
+                  </label>
+                  <div className="assessment-twoCol">
+                    <label>
+                      Duration
+                      <select value={assessment.duration} onChange={(e) => updateAssessment("duration", e.target.value)}>
+                        <option value="">Select duration</option>
+                        <option value="1 Day">1 Day</option>
+                        <option value="2 Days">2 Days</option>
+                        <option value="3 Days">3 Days</option>
+                        <option value="1 Week">1 Week</option>
+                        <option value="More than 1 Week">More than 1 Week</option>
+                      </select>
+                    </label>
+                    <label>
+                      Pain Level (0-10)
+                      <input
+                        type="number"
+                        min="0"
+                        max="10"
+                        value={assessment.painLevel}
+                        onChange={(e) => updateNumericAssessment("painLevel", e.target.value)}
+                        placeholder="0-10"
+                      />
+                    </label>
+                  </div>
+                  <div className="assessment-checkGrid">
+                    {symptomOptions.map((symptom) => (
+                      <label key={symptom}>
+                        <input
+                          type="checkbox"
+                          checked={assessment.symptoms.includes(symptom)}
+                          onChange={() => toggleAssessmentListValue("symptoms", symptom)}
+                        />
+                        {symptom}
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="assessment-card">
+                  <h3><FlaskConical size={18} /> 3. Rapid Test Results</h3>
+                  <div className="assessment-compactRows">
+                    {rapidTests.map(({ field, label, options }) => (
+                      <label key={field}>
+                        {label}
+                        <select
+                          className={`rapid-resultSelect ${rapidResultTone(assessment[field])}`}
+                          value={assessment[field]}
+                          onChange={(e) => updateAssessment(field, e.target.value)}
+                        >
+                          <option value="">Select result</option>
+                          {options.map((option) => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="assessment-card">
+                  <h3><Heart size={18} /> 4. Chronic Conditions</h3>
+                  <div className="assessment-checkGrid two">
+                    {chronicConditionOptions.map((condition) => (
+                      <label key={condition}>
+                        <input
+                          type="checkbox"
+                          checked={assessment.chronicConditions.includes(condition)}
+                          onChange={() => toggleAssessmentListValue("chronicConditions", condition)}
+                        />
+                        {condition}
+                      </label>
+                    ))}
+                  </div>
+                  <input
+                    className="assessment-otherInput"
+                    placeholder="Enter condition"
+                    value={assessment.otherCondition}
+                    onChange={(e) => updateTextOnlyAssessment("otherCondition", e.target.value)}
+                  />
+                </section>
+
+                <section className="assessment-card">
+                  <h3><Pill size={18} /> 5. Medications & Allergies</h3>
+                  <label className="assessment-wideField">
+                    Current Medications
+                    <textarea value={assessment.currentMedications} onChange={(e) => updateAssessment("currentMedications", e.target.value)} />
+                  </label>
+                  <label className="assessment-wideField">
+                    Drug Allergies
+                    <input value={assessment.drugAllergies} onChange={(e) => updateTextOnlyAssessment("drugAllergies", e.target.value)} />
+                  </label>
+                  <label className="assessment-wideField">
+                    Food Allergies
+                    <input value={assessment.foodAllergies} onChange={(e) => updateTextOnlyAssessment("foodAllergies", e.target.value)} />
+                  </label>
+                </section>
+
+                <section className="assessment-card">
+                  <h3><Stethoscope size={18} /> 6. Physical Examination</h3>
+                  <div className="assessment-compactRows">
+                    {physicalExamFields.map(([field, label]) => (
+                      <label key={field}>
+                        {label}
+                        <select
+                          value={assessment[field]}
+                          onChange={(e) => updateAssessment(field, e.target.value)}
+                        >
+                          <option value="">Select finding</option>
+                          <option value="Normal">Normal</option>
+                          <option value="Ill-looking">Ill-looking</option>
+                          <option value="Clear">Clear</option>
+                          <option value="S1 S2 Normal">S1 S2 Normal</option>
+                          <option value="Soft, Non-tender">Soft, Non-tender</option>
+                          <option value="Abnormal">Abnormal</option>
+                        </select>
+                      </label>
+                    ))}
+                  </div>
+                </section>
+
+                <section className="assessment-card assessment-insights">
+                  <h3><BrainCircuit size={18} /> 7. AI Clinical Insights</h3>
+                  <div className="assessment-insightGrid">
+                    <div>
+                      <h4>Possible Conditions</h4>
+                      {loadingSummary || loadingMedicationAdvice ? (
+                        <p><b>Analyzing patient notes...</b></p>
+                      ) : insightConditions.length ? (
+                        insightConditions.map((condition, index) => (
+                          <p key={`${condition.name}-${index}`}>
+                            <b>{index + 1}. {condition.name}</b>
+                            {typeof condition.confidence === "number" && (
+                              <span>{formatConfidencePercent(condition.confidence)}</span>
+                            )}
+                          </p>
+                        ))
+                      ) : (
+                        <p><b>{notes.length ? "Generate AI Insights from saved notes" : "No patient notes available"}</b></p>
+                      )}
+                    </div>
+                    <div>
+                      <h4>Recommended Tests</h4>
+                      {loadingSummary ? (
+                        <p>Checking tests from patient notes...</p>
+                      ) : insightRecommendedTests.length ? (
+                        insightRecommendedTests.map((test) => <p className="recommended-test" key={test}>{test}</p>)
+                      ) : (
+                        <p>No tests identified from current notes</p>
+                      )}
+                    </div>
+                  </div>
+                  <div className="assessment-risk">
+                    <b>Risk Level</b>
+                    <span>{insightRisk.level}</span>
+                    {insightRisk.text}
+                  </div>
+                </section>
+
+                <section className="assessment-card assessment-notes">
+                  <h3><PenLine size={18} /> 8. Doctor Consultation Notes</h3>
+                  <div className="assessment-noteGrid">
+                    <label>
+                      Assessment
+                      <textarea
+                        value={note}
+                        onChange={(e) => setNote(e.target.value)}
+                        placeholder="Enter the doctor's assessment for this patient."
+                      />
+                    </label>
+                    <label>
+                      Follow-Up Date
+                      <input
+                        type="date"
+                        value={assessment.followUpDate}
+                        onChange={(e) => updateAssessment("followUpDate", e.target.value)}
+                      />
+                    </label>
+                    <label>
+                      Diagnosis (Provisional)
+                      <input
+                        value={title}
+                        onChange={(e) => setTitle(textOnlyValue(e.target.value))}
+                        placeholder="Enter provisional diagnosis."
+                      />
+                    </label>
+                    <label>
+                      Notes
+                      <textarea
+                        value={prescriptionNotes}
+                        onChange={(e) => setPrescriptionNotes(e.target.value)}
+                        placeholder="Enter consultation notes."
+                      />
+                    </label>
+                    <label>
+                      Treatment Plan
+                      <textarea
+                        value={labClinicalNotes}
+                        onChange={(e) => setLabClinicalNotes(e.target.value)}
+                        placeholder="Enter treatment plan or lab clinical notes."
+                      />
+                    </label>
+                  </div>
+                </section>
+              </div>
+
+              <div className="assessment-actionBar">
+                <button className="assessment-action primary" onClick={saveNote} disabled={saving}>
+                  <Save size={18} /> {saving ? "Saving..." : "Save Assessment"}
+                </button>
+                <button className="assessment-action purple" onClick={generateSummary} disabled={loadingSummary}>
+                  <BrainCircuit size={18} /> {loadingSummary ? "Generating..." : "Generate AI Insights"}
+                </button>
+                <button className="assessment-action violet" onClick={recommendMedication} disabled={loadingMedicationAdvice}>
+                  <Sparkles size={18} /> {loadingMedicationAdvice ? "Checking..." : "Predict Medication"}
+                </button>
+                <button className="assessment-action green" onClick={openPrescriptionWithAiAnalysis} disabled={loadingMedicationAdvice}>
+                  <Pill size={18} /> {loadingMedicationAdvice ? "Analyzing..." : "Send Prescription"}
+                </button>
+                <button className="assessment-action orange" onClick={openLabRequestWithBloodGroupCheck}>
+                  <FlaskConical size={18} /> Send Lab Request
+                </button>
+                <button className="assessment-action blue" onClick={() => setShowPatientHistory(true)}>
+                  <FolderOpen size={18} /> View Patient History
+                </button>
+                <button className="assessment-action teal" onClick={() => setSuccess("Follow-up scheduled from assessment.")}>
+                  <CalendarCheck size={18} /> Schedule Follow-Up
+                </button>
               </div>
 
               {aiMedicationAdvice && (
@@ -1033,7 +1682,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                     <div style={styles.aiHeaderText}>
                       <div style={styles.panelTitleSmall}>AI Medication Options</div>
                       <div className="doctor-ai-subtitle">
-                        Based only on the latest saved note
+                        Based on saved patient notes and the current assessment
                         {aiMedicationAdvice.patient_context?.source_note_title
                           ? `: ${aiMedicationAdvice.patient_context.source_note_title}`
                           : ""}
@@ -1060,7 +1709,12 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                               ? ` - ${(prediction.confidence * 100).toFixed(0)}% match`
                               : ""}
                             {prediction.explanation ? (
-                              <div style={styles.aiFineText}>{prediction.explanation}</div>
+                              <div style={styles.aiFineText}>
+                                {presentationSafeText(
+                                  prediction.explanation,
+                                  `Clinical pattern supports review for ${prediction.disease.replace(/_/g, " ")}.`
+                                )}
+                              </div>
                             ) : null}
                           </li>
                         ))
@@ -1073,10 +1727,10 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                   <div style={styles.aiSection}>
                     <div style={styles.aiLabel}>Patient Signals Used</div>
                     <ul style={styles.ul}>
-                      {(aiMedicationAdvice.patient_context?.symptoms || []).length > 0 ? (
-                        aiMedicationAdvice.patient_context.symptoms?.map((item, i) => <li key={i}>{item}</li>)
+                      {medicationPatientSignals.length > 0 ? (
+                        medicationPatientSignals.map((item, i) => <li key={i}>{item}</li>)
                       ) : (
-                        <li>No symptoms detected from notes</li>
+                        <li>No symptoms entered or detected yet</li>
                       )}
                     </ul>
                   </div>
@@ -1093,10 +1747,17 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                               <div style={styles.aiFineText}>For: {option.matched_conditions.join(", ")}</div>
                             ) : null}
                             {option.rationale?.length ? (
-                              <div style={styles.aiFineText}>{option.rationale[0]}</div>
+                              <div style={styles.aiFineText}>
+                                {presentationSafeText(
+                                  option.rationale[0],
+                                  `Positive medication match: ${option.medication} aligns with this patient's documented condition pattern.`
+                                )}
+                              </div>
                             ) : null}
                             {option.cautions?.length ? (
-                              <div style={styles.aiWarningText}>{option.cautions[0]}</div>
+                              <div style={styles.aiWarningText}>
+                                {presentationSafeText(option.cautions[0])}
+                              </div>
                             ) : null}
                           </li>
                         ))
@@ -1109,10 +1770,16 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                   <div style={styles.aiSection}>
                     <div style={styles.aiLabel}>Before Prescribing</div>
                     <ul style={styles.ul}>
-                      {(aiMedicationAdvice.avoid_or_review || []).map((item, i) => <li key={i}>{item}</li>)}
+                      {(aiMedicationAdvice.avoid_or_review || [])
+                        .map((item) => presentationSafeText(item))
+                        .filter(Boolean)
+                        .map((item, i) => <li key={i}>{item}</li>)}
                     </ul>
                     <div style={{ ...styles.aiWarningText, marginTop: 8 }}>
-                      {aiMedicationAdvice.clinician_review_note}
+                      {presentationSafeText(
+                        aiMedicationAdvice.clinician_review_note,
+                        "Medication choice should match the confirmed diagnosis, patient safety factors, dose, route, duration, monitoring plan, and counselling needs."
+                      )}
                     </div>
                   </div>
 
@@ -1381,21 +2048,22 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                           style={styles.input}
                           placeholder="Drug name"
                           value={item.drugName}
-                          onChange={(e) => updatePrescriptionItem(index, "drugName", e.target.value)}
+                          onChange={(e) => updatePrescriptionItem(index, "drugName", textOnlyValue(e.target.value))}
                           disabled={savingPrescription}
                         />
                         <input
                           style={styles.input}
+                          inputMode="decimal"
                           placeholder="Dosage"
                           value={item.dosage}
-                          onChange={(e) => updatePrescriptionItem(index, "dosage", e.target.value)}
+                          onChange={(e) => updatePrescriptionItem(index, "dosage", numericOnlyValue(e.target.value))}
                           disabled={savingPrescription}
                         />
                         <input
                           style={styles.input}
                           placeholder="Frequency"
                           value={item.frequency}
-                          onChange={(e) => updatePrescriptionItem(index, "frequency", e.target.value)}
+                          onChange={(e) => updatePrescriptionItem(index, "frequency", textOnlyValue(e.target.value))}
                           disabled={savingPrescription}
                         />
                         <input
@@ -1510,7 +2178,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                           <input
                             style={styles.input}
                             value={test.testName}
-                            onChange={(e) => updateLabTest(index, "testName", e.target.value)}
+                            onChange={(e) => updateLabTest(index, "testName", textOnlyValue(e.target.value))}
                             placeholder="e.g., Complete Blood Count"
                             disabled={savingLabRequest}
                           />
@@ -1699,6 +2367,11 @@ const styles: Record<string, React.CSSProperties> = {
   grid: {
     display: "grid",
     gridTemplateColumns: "320px 1fr",
+    gap: 14,
+  },
+  gridSelectedPatient: {
+    display: "grid",
+    gridTemplateColumns: "1fr",
     gap: 14,
   },
   panel: {

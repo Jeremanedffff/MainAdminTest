@@ -15,7 +15,28 @@
   mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.65), transparent 70%);
 }
 
+.register-shell::before {
+  z-index: 0;
+  animation: registerGridDrift 24s linear infinite;
+}
+
+.register-shell::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='920' height='180' viewBox='0 0 920 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 94 H126 L148 94 L164 58 L184 128 L206 76 L230 94 H370 L392 94 L410 66 L430 116 L456 84 L478 94 H662 L684 94 L704 48 L728 132 L752 76 L774 94 H920' fill='none' stroke='%231678d8' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' opacity='0.54'/%3E%3Cpath d='M0 126 H920' fill='none' stroke='%231eb7a6' stroke-width='2' stroke-dasharray='8 18' opacity='0.34'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 920px 180px;
+  background-position: 0 24%;
+  opacity: 0.34;
+  z-index: 0;
+  animation: registerPulseMove 18s linear infinite;
+}
+
 .login-stage {
+  position: relative;
+  z-index: 1;
   animation: loginRise 0.75s ease both;
 }
 
@@ -23,11 +44,24 @@
   position: relative;
 }
 
+.register-card {
+  z-index: 2;
+}
+
+.login-card::after {
+  content: "";
+  position: absolute;
+  inset: 18px;
+  pointer-events: none;
+  border-radius: 22px;
+  border: 1px solid rgba(74, 144, 226, 0.08);
+}
+
 .login-mark {
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 6px;
+  margin-bottom: 22px;
 }
 
 .login-markIcon {
@@ -40,6 +74,157 @@
   color: #fff;
   background: linear-gradient(135deg, #1678d8, #1eb7a6);
   box-shadow: 0 16px 34px rgba(22, 120, 216, 0.28);
+}
+
+.login-copy {
+  display: grid;
+  gap: 10px;
+  margin-bottom: 18px;
+}
+
+.login-kicker {
+  width: fit-content;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  color: #245f9f;
+  background: #e8f4ff;
+  border: 1px solid #cde7fb;
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.login-copy h1 {
+  margin: 0;
+  color: #10233f;
+  font-size: 42px;
+  line-height: 1.02;
+  font-weight: 950;
+}
+
+.login-accessPills {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin: 8px 0 20px;
+}
+
+.login-accessPill {
+  min-height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 0 11px;
+  border-radius: 999px;
+  color: #16324f;
+  background: rgba(255, 255, 255, 0.84);
+  border: 1px solid #d7e7f5;
+  font-size: 12px;
+  font-weight: 850;
+  box-shadow: 0 10px 20px rgba(44, 90, 160, 0.07);
+}
+
+.login-accessPill svg {
+  width: 16px;
+  height: 16px;
+  color: #1678d8;
+  stroke-width: 2.5;
+}
+
+.login-fieldLabel {
+  display: block;
+  margin-top: 14px;
+  color: #27415f;
+  font-size: 13px;
+  font-weight: 900;
+}
+
+.credential-field {
+  min-height: 64px;
+  display: grid;
+  grid-template-columns: 66px minmax(0, 1fr);
+  align-items: center;
+  padding: 0;
+  overflow: hidden;
+}
+
+.credential-field.has-trailing-action {
+  grid-template-columns: 66px minmax(0, 1fr) 48px;
+}
+
+.credential-field::before {
+  display: none;
+}
+
+.credential-field.is-focused::before {
+  opacity: 0;
+}
+
+.credential-icon {
+  position: relative;
+  grid-column: 1;
+  justify-self: center;
+  z-index: 4;
+  width: 24px;
+  height: 24px;
+  transform: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  color: #0f172a;
+  background: transparent;
+  border: 0;
+  box-shadow: none;
+}
+
+.credential-icon svg {
+  width: 18px;
+  height: 18px;
+  stroke-width: 2.6;
+}
+
+.credential-field .login-credentialInput {
+  position: relative;
+  grid-column: 2;
+  z-index: 2;
+  width: 100% !important;
+  min-height: 62px !important;
+  padding: 0 !important;
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  color: #16324f !important;
+  font-size: 16px !important;
+  font-weight: 850 !important;
+  line-height: 1.3 !important;
+}
+
+.credential-field .login-credentialInput:focus {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.credential-field .login-credentialInput::placeholder {
+  color: #6a7f96 !important;
+  font-weight: 800;
+}
+
+.credential-field .credential-icon + input {
+  caret-color: #1678d8;
+}
+
+.credential-field span[style] {
+  position: relative !important;
+  grid-column: 3;
+  justify-self: center;
+  z-index: 5;
+  color: #1678d8 !important;
+  right: auto !important;
+  top: auto !important;
+  transform: none !important;
 }
 
 .login-primary:hover,
@@ -244,6 +429,24 @@
   }
 }
 
+@keyframes registerGridDrift {
+  from {
+    background-position: 0 0, 0 0;
+  }
+  to {
+    background-position: 72px 72px, 72px 72px;
+  }
+}
+
+@keyframes registerPulseMove {
+  from {
+    background-position: 0 24%;
+  }
+  to {
+    background-position: -920px 24%;
+  }
+}
+
 @media (max-width: 980px) {
   .ai-robot {
     right: 22px;
@@ -257,6 +460,19 @@
   .ai-robot {
     opacity: 0.72;
   }
+
+  .login-card::after {
+    inset: 10px;
+    border-radius: 18px;
+  }
+
+  .login-copy h1 {
+    font-size: 34px;
+  }
+
+  .login-accessPills {
+    margin-bottom: 14px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -266,6 +482,11 @@
   .ai-robot,
   .ai-robotHead span,
   .ai-robotPulse {
+    animation: none;
+  }
+
+  .register-shell::before,
+  .register-shell::after {
     animation: none;
   }
 }

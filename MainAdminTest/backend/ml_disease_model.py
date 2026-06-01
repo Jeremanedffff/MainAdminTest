@@ -297,6 +297,7 @@ class TrainedDiseaseModel:
         symptoms = [str(symptom).replace("_", " ") for symptom in entities.get("symptoms", [])]
         risk_factors = [str(factor).replace("_", " ") for factor in entities.get("risk_factors", [])]
         vitals = entities.get("vital_signs", {})
+        note_text = self._normalize_feedback_text(str(entities.get("note_text", "")))
         abnormal_vitals = []
 
         if vitals.get("temperature_c", 0) > 37.5:
@@ -308,7 +309,7 @@ class TrainedDiseaseModel:
         if vitals.get("blood_pressure_systolic", 0) > 140:
             abnormal_vitals.append("high blood pressure")
 
-        return " ".join(symptoms + risk_factors + abnormal_vitals)
+        return " ".join(symptoms + risk_factors + abnormal_vitals + [note_text])
 
     def _doctor_feedback_count(self) -> int:
         if not os.path.exists(self.doctor_feedback_path):

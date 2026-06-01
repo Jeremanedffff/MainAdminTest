@@ -291,10 +291,13 @@ class CustomMedicalAI:
         if age_match:
             entities["demographics"]["age"] = int(age_match.group(1))
         
-        if "male" in combined_text:
-            entities["demographics"]["gender"] = "male"
-        elif "female" in combined_text:
+        if re.search(r"\b(female|woman|girl|pregnant|pregnancy|breastfeeding|postpartum)\b", combined_text):
             entities["demographics"]["gender"] = "female"
+        elif re.search(r"\b(male|man|boy)\b", combined_text):
+            entities["demographics"]["gender"] = "male"
+
+        if re.search(r"\b(pregnant|pregnancy|gestation|antenatal|postpartum|breastfeeding)\b", combined_text):
+            entities["demographics"]["pregnancy_relevant"] = True
         
         return entities
     

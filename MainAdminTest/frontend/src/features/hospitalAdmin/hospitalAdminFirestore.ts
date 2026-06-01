@@ -43,6 +43,9 @@ export type PatientRow = {
   status: "ACTIVE" | "DISABLED";
   registeredBy: "SELF" | "ADMIN" | "RECEPTIONIST";
   createdAt: string;
+  bloodGroup?: string;
+  chronicConditions?: string[];
+  allergies?: string;
 };
 
 export type PatientNoteRow = {
@@ -54,6 +57,7 @@ export type PatientNoteRow = {
   title: string;
   note: string;
   createdAtISO: string;
+  assessment?: Record<string, any>;
   linkedPrescriptions?: {
     prescriptionId: string;
     medicationSummary: string;
@@ -213,6 +217,27 @@ export type LabTechnician = {
   qualifications: string[];
   status: "ACTIVE" | "INACTIVE";
 };
+
+function mapPatientDoc(docId: string, data: any): PatientRow {
+  return {
+    id: data.patientId || docId,
+    hospitalId: data.hospitalId,
+    hospitalName: data.hospitalName || "",
+    hospitalCode: data.hospitalCode || "",
+    districtCode: data.districtCode || "",
+    fullName: data.fullName,
+    sex: data.sex,
+    age: Number(data.age || 0),
+    phone: data.phone || "",
+    email: data.email || undefined,
+    status: data.status || "ACTIVE",
+    registeredBy: data.registeredBy || "SELF",
+    createdAt: (data.createdAtISO || "").slice(0, 10),
+    bloodGroup: data.clinicalFacts?.bloodGroup || data.bloodGroup || "",
+    chronicConditions: data.clinicalFacts?.chronicConditions || data.chronicConditions || [],
+    allergies: data.clinicalFacts?.allergies || data.allergies || "",
+  };
+}
 
 function medicationSummary(items: PrescriptionItem[]): string {
   return items
@@ -735,24 +760,7 @@ export async function loadPatientsByHospital(hospitalId: string): Promise<Patien
   const snap = await getDocs(q1);
 
   return snap.docs
-    .map((d) => {
-      const data = d.data() as any;
-      return {
-        id: data.patientId || d.id,
-        hospitalId: data.hospitalId,
-        hospitalName: data.hospitalName || "",
-        hospitalCode: data.hospitalCode || "",
-        districtCode: data.districtCode || "",
-        fullName: data.fullName,
-        sex: data.sex,
-        age: Number(data.age || 0),
-        phone: data.phone || "",
-        email: data.email || undefined,
-        status: data.status || "ACTIVE",
-        registeredBy: data.registeredBy || "SELF",
-        createdAt: (data.createdAtISO || "").slice(0, 10),
-      };
-    })
+    .map((d) => mapPatientDoc(d.id, d.data() as any))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -775,22 +783,7 @@ export async function findPatientById(patientId: string): Promise<PatientRow | n
 
   if (!patientSnap || !patientSnap.exists()) return null;
 
-  const data = patientSnap.data() as any;
-  return {
-    id: data.patientId || patientSnap.id,
-    hospitalId: data.hospitalId,
-    hospitalName: data.hospitalName || "",
-    hospitalCode: data.hospitalCode || "",
-    districtCode: data.districtCode || "",
-    fullName: data.fullName,
-    sex: data.sex,
-    age: Number(data.age || 0),
-    phone: data.phone || "",
-    email: data.email || undefined,
-    status: data.status || "ACTIVE",
-    registeredBy: data.registeredBy || "SELF",
-    createdAt: (data.createdAtISO || "").slice(0, 10),
-  };
+  return mapPatientDoc(patientSnap.id, patientSnap.data() as any);
 }
 
 export async function loadAllPatients(): Promise<PatientRow[]> {
@@ -798,24 +791,7 @@ export async function loadAllPatients(): Promise<PatientRow[]> {
   const snap = await getDocs(patientsRef);
 
   return snap.docs
-    .map((d) => {
-      const data = d.data() as any;
-      return {
-        id: data.patientId || d.id,
-        hospitalId: data.hospitalId,
-        hospitalName: data.hospitalName || "",
-        hospitalCode: data.hospitalCode || "",
-        districtCode: data.districtCode || "",
-        fullName: data.fullName,
-        sex: data.sex,
-        age: Number(data.age || 0),
-        phone: data.phone || "",
-        email: data.email || undefined,
-        status: data.status || "ACTIVE",
-        registeredBy: data.registeredBy || "SELF",
-        createdAt: (data.createdAtISO || "").slice(0, 10),
-      };
-    })
+    .map((d) => mapPatientDoc(d.id, d.data() as any))
     .sort((a, b) => b.createdAt.localeCompare(a.createdAt));
 }
 
@@ -827,24 +803,7 @@ export async function searchPatientsAcrossHospitals(searchQuery: string): Promis
   if (!query) return [];
 
   return snap.docs
-    .map((d) => {
-      const data = d.data() as any;
-      return {
-        id: data.patientId || d.id,
-        hospitalId: data.hospitalId,
-        hospitalName: data.hospitalName || "",
-        hospitalCode: data.hospitalCode || "",
-        districtCode: data.districtCode || "",
-        fullName: data.fullName,
-        sex: data.sex,
-        age: Number(data.age || 0),
-        phone: data.phone || "",
-        email: data.email || undefined,
-        status: data.status || "ACTIVE",
-        registeredBy: data.registeredBy || "SELF",
-        createdAt: (data.createdAtISO || "").slice(0, 10),
-      };
-    })
+    .map((d) => mapPatientDoc(d.id, d.data() as any))
     .filter((patient) => {
       return (
         patient.id.toLowerCase().includes(query) ||
@@ -864,6 +823,7 @@ export async function addPatientNoteFirestore(payload: {
   doctorName: string;
   title: string;
   note: string;
+  assessment?: Record<string, any>;
 }): Promise<PatientNoteRow> {
   const cleanTitle = payload.title.trim();
   const cleanNote = payload.note.trim();
@@ -879,6 +839,7 @@ export async function addPatientNoteFirestore(payload: {
     doctorName: payload.doctorName,
     title: cleanTitle,
     note: cleanNote,
+    ...(payload.assessment ? { assessment: payload.assessment } : {}),
     createdAtISO,
     linkedPrescriptions: [],
   });
@@ -891,9 +852,38 @@ export async function addPatientNoteFirestore(payload: {
     doctorName: payload.doctorName,
     title: cleanTitle,
     note: cleanNote,
+    assessment: payload.assessment,
     createdAtISO,
     linkedPrescriptions: [],
   };
+}
+
+export async function updatePatientClinicalFactsFirestore(payload: {
+  patientId: string;
+  bloodGroup?: string;
+  chronicConditions?: string[];
+  allergies?: string;
+}): Promise<void> {
+  const updateData: Record<string, any> = {
+    "clinicalFacts.updatedAtISO": new Date().toISOString(),
+  };
+
+  if (payload.bloodGroup) {
+    updateData["clinicalFacts.bloodGroup"] = payload.bloodGroup;
+    updateData.bloodGroup = payload.bloodGroup;
+  }
+
+  if (payload.chronicConditions) {
+    updateData["clinicalFacts.chronicConditions"] = payload.chronicConditions;
+    updateData.chronicConditions = payload.chronicConditions;
+  }
+
+  if (payload.allergies !== undefined) {
+    updateData["clinicalFacts.allergies"] = payload.allergies;
+    updateData.allergies = payload.allergies;
+  }
+
+  await updateDoc(doc(db, "patients", payload.patientId), updateData);
 }
 
 export async function loadPatientNotes(patientId: string): Promise<PatientNoteRow[]> {
@@ -913,6 +903,7 @@ export async function loadPatientNotes(patientId: string): Promise<PatientNoteRo
         title: data.title,
         note: data.note,
         createdAtISO: data.createdAtISO,
+        assessment: data.assessment,
         linkedPrescriptions: data.linkedPrescriptions || [],
       };
     })

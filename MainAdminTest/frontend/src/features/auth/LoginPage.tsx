@@ -41,6 +41,12 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
     { label: "Care signals", value: "Live", note: "department trends", icon: <Activity size={20} /> },
   ];
 
+  const accessPills = [
+    { label: "Clinical staff", icon: <HeartPulse size={15} /> },
+    { label: "Hospital admins", icon: <Building2 size={15} /> },
+    { label: "Patients", icon: <ShieldPlus size={15} /> },
+  ];
+
   useEffect(() => {
     setMounted(true); // entrance animation
   }, []);
@@ -116,42 +122,71 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
             <span className="login-markIcon"><HeartPulse size={20} /></span>
             <span style={{ ...styles.logo, ...(isPhone ? styles.logoPhone : {}) }}>Health-Sphere</span>
           </div>
-          <div style={{ ...styles.sub, ...(isPhone ? styles.subPhone : {}) }}>Secure Login Portal</div>
+
+          <div className="login-copy">
+            <div className="login-kicker">
+              <ShieldPlus size={15} />
+              Secure clinical access
+            </div>
+            <h1>Welcome back</h1>
+            <p style={{ ...styles.sub, ...(isPhone ? styles.subPhone : {}) }}>
+              We are glad to see you again. Continue to your trusted care workspace.
+            </p>
+          </div>
+
+          <div className="login-accessPills">
+            {accessPills.map((item) => (
+              <span className="login-accessPill" key={item.label}>
+                {item.icon}
+                {item.label}
+              </span>
+            ))}
+          </div>
 
           {err && <div style={styles.error}>{err}</div>}
 
           {/* ID */}
+          <label className="login-fieldLabel">User ID, email, or phone</label>
           <div
+            className={`credential-field ${focused === "id" ? "is-focused" : ""}`}
             style={{
               ...styles.inputWrapper,
               ...(focused === "id" ? styles.inputFocus : {}),
             }}
           >
-            <User size={18} style={styles.icon} />
+            <span className="credential-icon">
+              <User size={18} />
+            </span>
             <input
-              style={styles.input}
+              className="login-credentialInput"
               value={identifier}
               onChange={(e) => setIdentifier(e.target.value)}
               placeholder="ID / Email / Phone"
+              aria-label="User ID, email, or phone"
               onFocus={() => setFocused("id")}
               onBlur={() => setFocused(null)}
             />
           </div>
 
           {/* PASSWORD */}
+          <label className="login-fieldLabel">Password</label>
           <div
+            className={`credential-field has-trailing-action ${focused === "pass" ? "is-focused" : ""}`}
             style={{
               ...styles.inputWrapper,
               ...(focused === "pass" ? styles.inputFocus : {}),
             }}
           >
-            <Lock size={18} style={styles.icon} />
+            <span className="credential-icon">
+              <Lock size={18} />
+            </span>
             <input
-              style={styles.input}
+              className="login-credentialInput"
               type={showPassword ? "text" : "password"}
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Password"
+              aria-label="Password"
               onFocus={() => setFocused("pass")}
               onBlur={() => setFocused(null)}
               onKeyDown={(e) => e.key === "Enter" && submit()}
@@ -170,6 +205,7 @@ const LoginPage: React.FC<Props> = ({ onLogin }) => {
             onClick={submit}
             disabled={loading}
           >
+            <ShieldPlus size={18} />
             {loading ? "Logging in..." : "Login"}
           </button>
 
@@ -240,8 +276,7 @@ const styles: Record<string, React.CSSProperties> = {
     justifyContent: "center",
     background:
       "radial-gradient(circle at 12% 16%, rgba(37, 211, 102, 0.16), transparent 22%), radial-gradient(circle at 84% 22%, rgba(74, 144, 226, 0.2), transparent 24%), linear-gradient(135deg, #eef7fb 0%, #dfeefa 48%, #d9f6f0 100%)",
-    fontFamily:
-      "'Trebuchet MS', 'Segoe UI', Roboto, system-ui, sans-serif",
+    fontFamily: "var(--font-family)",
   },
 
   container: {
@@ -278,21 +313,21 @@ const styles: Record<string, React.CSSProperties> = {
   },
 
   logo: {
-    fontSize: 31,
-    fontWeight: 900,
-    marginBottom: 6,
+    fontSize: 30,
+    fontWeight: 950,
     color: "#143b64",
-    letterSpacing: "-0.03em",
+    letterSpacing: 0,
   },
   logoPhone: {
     fontSize: 26,
   },
 
   sub: {
-    fontSize: 14,
-    color: "#5a708b",
-    marginBottom: 24,
+    fontSize: 15,
+    color: "#53657a",
+    margin: 0,
     fontWeight: 700,
+    lineHeight: 1.65,
   },
   subPhone: {
     fontSize: 13,
@@ -300,26 +335,17 @@ const styles: Record<string, React.CSSProperties> = {
 
   inputWrapper: {
     position: "relative",
-    marginTop: 14,
+    marginTop: 8,
     borderRadius: 16,
     transition: "all 0.3s ease",
-    background: "white",
+    background: "linear-gradient(180deg, #ffffff 0%, #f8fbff 100%)",
     border: "1px solid #d6e4f0",
-    boxShadow: "0 10px 24px rgba(116, 142, 170, 0.08)",
+    boxShadow: "0 14px 28px rgba(44, 90, 160, 0.08)",
   },
 
   inputFocus: {
-    boxShadow: "0 0 0 4px rgba(74, 144, 226, 0.12), 0 14px 30px rgba(74, 144, 226, 0.14)",
-    border: "1px solid #74a9e8",
-  },
-
-  icon: {
-    position: "absolute",
-    left: 12,
-    top: "50%",
-    transform: "translateY(-50%)",
-    color: "#2f7fc9",
-    opacity: 0.95,
+    boxShadow: "0 0 0 4px rgba(74, 144, 226, 0.13), 0 18px 34px rgba(74, 144, 226, 0.16)",
+    border: "1px solid #62a1e7",
   },
 
   eye: {
@@ -333,27 +359,34 @@ const styles: Record<string, React.CSSProperties> = {
 
   input: {
     width: "100%",
-    padding: "15px 42px 15px 40px",
+    minHeight: 58,
+    padding: "16px 48px 16px 58px",
     borderRadius: 16,
     border: "none",
     outline: "none",
     background: "transparent",
     color: "#16324f",
-    fontSize: 14,
-    fontWeight: 700,
+    fontSize: 15,
+    fontWeight: 800,
   },
 
   primaryBtn: {
     marginTop: 24,
-    padding: 15,
+    minHeight: 58,
+    padding: "0 18px",
     borderRadius: 16,
     border: "none",
     cursor: "pointer",
-    fontWeight: 800,
+    fontWeight: 900,
+    fontSize: 15,
     background: "linear-gradient(135deg, #1678d8, #1eb7a6)",
     color: "white",
     transition: "all 0.3s ease",
     boxShadow: "0 16px 28px rgba(22, 120, 216, 0.24)",
+    display: "inline-flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 9,
   },
 
   registerRow: {

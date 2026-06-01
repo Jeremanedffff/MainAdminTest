@@ -717,11 +717,12 @@ const MainAdminDashboard = () => {
               onClick={() => setMenuOpen(!menuOpen)}
               onMouseEnter={() => setMenuBtnHover(true)}
               onMouseLeave={() => setMenuBtnHover(false)}
+              aria-label="Open main admin menu"
             >
-              <Menu 
-                size={20} 
-                style={{ 
-                  color: '#000000',
+              <Menu
+                size={22}
+                style={{
+                  color: 'currentColor',
                   transition: 'transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
                   transform: menuOpen ? 'rotate(90deg)' : 'rotate(0deg)'
                 }}
@@ -1348,7 +1349,7 @@ const layout: Record<string, React.CSSProperties> = {
     border: "1px solid rgba(74, 144, 226, 0.2)",
     boxShadow: "var(--shadow-lg)",
     padding: "var(--space-sm)",
-    zIndex: 999,
+    zIndex: 10000,
   },
   menuCompact: {
     width: 72,

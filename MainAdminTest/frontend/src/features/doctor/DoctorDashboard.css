@@ -488,6 +488,403 @@
   background: linear-gradient(135deg, #256f9f, #50bfbf);
 }
 
+.preconsult-shell {
+  background: #f8fbff;
+  border: 1px solid #dce8f5;
+  border-radius: 16px;
+  padding: 14px;
+  box-shadow: 0 18px 44px rgba(15, 23, 42, 0.08);
+}
+
+.preconsult-topbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+  padding: 4px 2px 14px;
+}
+
+.preconsult-titleRow {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  color: #183153;
+}
+
+.preconsult-backBtn {
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  border: 1px solid #cfe0f4;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1d4ed8;
+  cursor: pointer;
+}
+
+.preconsult-backBtn:hover {
+  background: #eff6ff;
+}
+
+.preconsult-titleRow h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 950;
+}
+
+.preconsult-titleRow p {
+  margin: 3px 0 0;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.assessment-secondaryBtn {
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  border: 1px solid #c9dbef;
+  border-radius: 8px;
+  padding: 0 13px;
+  background: #ffffff;
+  color: #2563eb;
+  font-weight: 900;
+  cursor: pointer;
+}
+
+.assessment-patientCard,
+.assessment-card {
+  background: rgba(255, 255, 255, 0.96);
+  border: 1px solid #dde8f5;
+  border-radius: 14px;
+  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.055);
+}
+
+.assessment-patientCard {
+  display: grid;
+  grid-template-columns: 72px minmax(0, 1fr);
+  gap: 16px;
+  padding: 18px;
+  margin-bottom: 14px;
+}
+
+.assessment-avatar {
+  width: 56px;
+  height: 56px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #2563eb, #4f46e5);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 950;
+}
+
+.assessment-profileGrid {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(92px, 1fr));
+  gap: 12px;
+  align-items: start;
+}
+
+.assessment-profileGrid span,
+.assessment-patientMeta span {
+  display: block;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 900;
+  margin-bottom: 5px;
+}
+
+.assessment-profileGrid b,
+.assessment-patientMeta b {
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.assessment-statusPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: #dff8ec;
+  color: #047857 !important;
+}
+
+.assessment-patientMeta {
+  grid-column: 2;
+  display: grid;
+  grid-template-columns: 1.4fr 1fr 0.8fr 1.4fr;
+  gap: 12px;
+  padding-top: 12px;
+  border-top: 1px solid #edf2f7;
+}
+
+.assessment-patientMeta strong {
+  display: inline-flex;
+  align-items: center;
+  min-height: 24px;
+  margin-right: 6px;
+  padding: 0 9px;
+  border-radius: 6px;
+  color: #be123c;
+  background: #fff1f2;
+  border: 1px solid #fecdd3;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.assessment-grid {
+  display: grid;
+  grid-template-columns: repeat(12, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.assessment-card {
+  padding: 16px;
+}
+
+.assessment-card h3 {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  color: #2563eb;
+  font-size: 13px;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.assessment-vitals,
+.assessment-card:nth-child(2),
+.assessment-insights,
+.assessment-notes {
+  grid-column: span 6;
+}
+
+.assessment-card:nth-child(3),
+.assessment-card:nth-child(4),
+.assessment-card:nth-child(5) {
+  grid-column: span 4;
+}
+
+.assessment-card:nth-child(6) {
+  grid-column: span 5;
+}
+
+.assessment-insights {
+  grid-column: span 7;
+}
+
+.assessment-notes {
+  grid-column: 1 / -1;
+}
+
+.assessment-fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 13px;
+}
+
+.assessment-twoCol,
+.assessment-noteGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.assessment-checkGrid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px 14px;
+  margin-top: 14px;
+}
+
+.assessment-checkGrid.two {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.assessment-card label {
+  display: grid;
+  gap: 6px;
+  color: #334155;
+  font-size: 11px;
+  font-weight: 900;
+}
+
+.assessment-checkGrid label {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #475569;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.assessment-card input:not([type="checkbox"]):not([type="range"]),
+.assessment-card select,
+.assessment-card textarea {
+  width: 100%;
+  min-height: 38px !important;
+  border: 1px solid #d5e2f1 !important;
+  border-radius: 7px !important;
+  background: #ffffff !important;
+  color: #10233f !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  padding: 8px 10px !important;
+  box-shadow: none !important;
+}
+
+.assessment-card textarea {
+  min-height: 78px !important;
+  resize: vertical;
+  line-height: 1.45 !important;
+}
+
+.assessment-card input:focus,
+.assessment-card select:focus,
+.assessment-card textarea:focus {
+  border-color: #60a5fa !important;
+  box-shadow: 0 0 0 3px rgba(96, 165, 250, 0.15) !important;
+  transform: none !important;
+}
+
+.assessment-compactRows {
+  display: grid;
+  gap: 10px;
+}
+
+.assessment-compactRows label {
+  grid-template-columns: minmax(0, 1fr) 108px;
+  align-items: center;
+}
+
+.assessment-wideField {
+  margin-bottom: 12px;
+}
+
+.assessment-rangeValue {
+  width: 24px;
+  height: 24px;
+  display: inline-grid;
+  place-items: center;
+  border-radius: 999px;
+  background: #2563eb;
+  color: #ffffff;
+  font-size: 11px;
+}
+
+.assessment-otherInput {
+  margin-top: 12px;
+}
+
+.assessment-insightGrid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.assessment-insightGrid > div {
+  border: 1px solid #dde8f5;
+  border-radius: 10px;
+  padding: 12px;
+  background: #f8fbff;
+}
+
+.assessment-insightGrid h4 {
+  margin: 0 0 9px;
+  color: #183153;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.assessment-insightGrid p {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  margin: 7px 0;
+  color: #334155;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.assessment-insightGrid span {
+  color: #f97316;
+  font-weight: 950;
+}
+
+.assessment-risk {
+  margin-top: 12px;
+  padding: 11px 12px;
+  border: 1px solid #fed7aa;
+  border-radius: 10px;
+  background: #fff7ed;
+  color: #7c2d12;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.assessment-risk span {
+  display: inline-flex;
+  margin: 0 8px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #fed7aa;
+  color: #c2410c;
+  font-weight: 950;
+}
+
+.assessment-noteGrid label:first-child,
+.assessment-noteGrid label:last-child {
+  grid-column: span 1;
+}
+
+.assessment-actionBar {
+  position: sticky;
+  bottom: 0;
+  z-index: 5;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(128px, 1fr));
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px 0 0;
+  background: linear-gradient(180deg, rgba(248, 251, 255, 0), #f8fbff 28%);
+}
+
+.assessment-action {
+  min-height: 56px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 0;
+  border-radius: 8px;
+  padding: 0 12px;
+  color: #0f172a;
+  font-size: 12px;
+  font-weight: 950;
+  cursor: pointer;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.08);
+}
+
+.assessment-action.primary { background: #2563eb; color: #ffffff; }
+.assessment-action.purple { background: #f3e8ff; color: #7e22ce; }
+.assessment-action.violet { background: #ede9fe; color: #6d28d9; }
+.assessment-action.green { background: #dcfce7; color: #15803d; }
+.assessment-action.orange { background: #ffedd5; color: #ea580c; }
+.assessment-action.blue { background: #e0edff; color: #1d4ed8; }
+.assessment-action.teal { background: #ccfbf1; color: #0f766e; }
+
+.assessment-action:disabled {
+  opacity: 0.58;
+  cursor: not-allowed;
+}
+
 .hs-primaryBtn,
 .hs-secondaryBtn,
 .hs-miniActionBtn,
@@ -842,4 +1239,168 @@
 .doctor-dashboard .hs-textarea,
 .doctor-dashboard .hs-label {
   color: var(--form-text) !important;
+}
+
+.doctor-dashboard,
+.doctor-dashboard .preconsult-shell,
+.doctor-dashboard .assessment-patientCard,
+.doctor-dashboard .assessment-card,
+.doctor-dashboard .assessment-insightGrid > div,
+.doctor-dashboard .hs-topCard,
+.doctor-dashboard .hs-leftPanel,
+.doctor-dashboard .hs-rightPanel,
+.doctor-dashboard .hs-card,
+.doctor-dashboard .hs-sideCard,
+.doctor-dashboard .hs-noteCard,
+.doctor-dashboard .hs-modal {
+  color: #0f172a !important;
+}
+
+.doctor-dashboard [style*="background: white"],
+.doctor-dashboard [style*="background: \"white\""],
+.doctor-dashboard [style*="background: #ffffff"],
+.doctor-dashboard [style*="background: #f8fafc"],
+.doctor-dashboard [style*="background: #fbfdff"],
+.doctor-dashboard [style*="background: rgb(255, 255, 255)"] {
+  color: #0f172a !important;
+}
+
+.doctor-dashboard input,
+.doctor-dashboard select,
+.doctor-dashboard textarea,
+.doctor-dashboard option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  -webkit-text-fill-color: #0f172a !important;
+}
+
+.doctor-dashboard input::placeholder,
+.doctor-dashboard textarea::placeholder {
+  color: #475569 !important;
+  opacity: 1 !important;
+}
+
+.doctor-dashboard .assessment-profileGrid span,
+.doctor-dashboard .assessment-patientMeta span,
+.doctor-dashboard .preconsult-titleRow p,
+.doctor-dashboard .hs-sub,
+.doctor-dashboard .hs-panelSub,
+.doctor-dashboard .hs-meta {
+  color: #334155 !important;
+  opacity: 1 !important;
+}
+
+.doctor-dashboard .assessment-card h3 {
+  color: #2563eb !important;
+  letter-spacing: 0;
+}
+
+.doctor-dashboard .assessment-card h3 svg {
+  color: #2563eb;
+  stroke-width: 2.45;
+}
+
+.doctor-dashboard .assessment-insights h3,
+.doctor-dashboard .assessment-insights h3 svg {
+  color: #4f46e5 !important;
+}
+
+.doctor-dashboard .assessment-checkGrid input[type="checkbox"] {
+  accent-color: #2563eb;
+  width: 14px;
+  height: 14px;
+}
+
+.doctor-dashboard .rapid-resultSelect.positive {
+  background-color: #fff1f2 !important;
+  border-color: #fecdd3 !important;
+  color: #dc2626 !important;
+  -webkit-text-fill-color: #dc2626 !important;
+}
+
+.doctor-dashboard .rapid-resultSelect.negative {
+  background-color: #f0fdf4 !important;
+  border-color: #bbf7d0 !important;
+  color: #16a34a !important;
+  -webkit-text-fill-color: #16a34a !important;
+}
+
+.doctor-dashboard .rapid-resultSelect.suspected {
+  background-color: #fff7ed !important;
+  border-color: #fed7aa !important;
+  color: #ea580c !important;
+  -webkit-text-fill-color: #ea580c !important;
+}
+
+.doctor-dashboard .rapid-resultSelect.pending {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  color: #475569 !important;
+  -webkit-text-fill-color: #475569 !important;
+}
+
+.doctor-dashboard .assessment-insightGrid .recommended-test {
+  justify-content: flex-start;
+  align-items: center;
+  color: #166534;
+}
+
+.doctor-dashboard .assessment-insightGrid .recommended-test::before {
+  content: "";
+  width: 8px;
+  height: 8px;
+  flex: 0 0 8px;
+  border-radius: 999px;
+  background: #22c55e;
+  box-shadow: 0 0 0 3px #dcfce7;
+}
+
+.doctor-dashboard .assessment-action {
+  border: 1px solid transparent;
+}
+
+.doctor-dashboard .assessment-action svg {
+  flex: 0 0 auto;
+  stroke-width: 2.35;
+}
+
+.doctor-dashboard .assessment-action.primary {
+  background: #2563eb !important;
+  color: #ffffff !important;
+}
+
+.doctor-dashboard .assessment-action.purple {
+  background: #f3e8ff !important;
+  border-color: #e9d5ff !important;
+  color: #7e22ce !important;
+}
+
+.doctor-dashboard .assessment-action.violet {
+  background: #ede9fe !important;
+  border-color: #ddd6fe !important;
+  color: #6d28d9 !important;
+}
+
+.doctor-dashboard .assessment-action.green {
+  background: #dcfce7 !important;
+  border-color: #bbf7d0 !important;
+  color: #15803d !important;
+}
+
+.doctor-dashboard .assessment-action.orange {
+  background: #ffedd5 !important;
+  border-color: #fed7aa !important;
+  color: #ea580c !important;
+}
+
+.doctor-dashboard .assessment-action.blue {
+  background: #e0edff !important;
+  border-color: #bfdbfe !important;
+  color: #1d4ed8 !important;
+}
+
+.doctor-dashboard .assessment-action.teal {
+  background: #ccfbf1 !important;
+  border-color: #99f6e4 !important;
+  color: #0f766e !important;
 }

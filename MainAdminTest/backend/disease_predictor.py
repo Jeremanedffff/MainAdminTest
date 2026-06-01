@@ -37,22 +37,26 @@ class DiseasePredictor:
         vital_signs: Dict[str, float] | None = None,
         risk_factors: List[str] | None = None,
         demographics: Dict[str, Any] | None = None,
+        notes: List[str] | None = None,
     ) -> Dict[str, Any]:
         vital_signs = vital_signs or {}
         risk_factors = risk_factors or []
         demographics = demographics or {}
+        notes = notes or []
 
         entities = {
             "symptoms": symptoms or [],
             "vital_signs": vital_signs,
             "risk_factors": risk_factors,
             "demographics": demographics,
+            "note_text": " ".join(str(note or "") for note in notes),
         }
 
         rule_predictions = self._predict_by_clinical_rules(symptoms or [], vital_signs, risk_factors)
         ml_predictions = self.model.predict(entities, limit=8)
         pattern_predictions = self._predict_by_symptom_overlap(symptoms or [], vital_signs, limit=8)
         predictions = self._merge_predictions(rule_predictions, ml_predictions, pattern_predictions)
+        predictions = self._filter_predictions_for_demographics(predictions, demographics)
 
         return {
             "predictions": predictions[:10],
@@ -344,6 +348,46 @@ class DiseasePredictor:
                     "Patient-reported review evidence only; not prescribing guidance."
                 )
         return ranked
+
+    def _filter_predictions_for_demographics(
+        self,
+        predictions: List[Dict[str, Any]],
+        demographics: Dict[str, Any],
+    ) -> List[Dict[str, Any]]:
+        gender = str((demographics or {}).get("gender", "")).lower()
+        if gender not in {"male", "female"}:
+            return predictions
+
+        female_specific = {
+            "pregnancy",
+            "pregnant",
+            "gestational",
+            "postpartum",
+            "breastfeeding",
+            "menopause",
+            "menopausal",
+            "ovarian",
+            "uterine",
+            "cervical",
+            "vaginal",
+            "endometriosis",
+        }
+        male_specific = {
+            "prostate",
+            "testicular",
+            "erectile",
+        }
+
+        filtered = []
+        for prediction in predictions:
+            disease_text = self._normalize(prediction.get("disease", ""))
+            if gender == "male" and any(term in disease_text for term in female_specific):
+                continue
+            if gender == "female" and any(term in disease_text for term in male_specific):
+                continue
+            filtered.append(prediction)
+
+        return filtered
 
     def _load_medication_evidence(self) -> None:
         self.medication_evidence_index = {}

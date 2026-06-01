@@ -1,5 +1,6 @@
 from disease_predictor import DiseasePredictor
 from google import genai
+import hashlib
 import json
 import os
 import re
@@ -65,9 +66,93 @@ if custom_ai is not None:
     print("Custom Medical AI initialized successfully!")
 
 
+def _joined_note_text(notes: list[str]) -> str:
+    return " ".join(str(note or "") for note in notes).lower()
+
+
+def _extract_demographics_from_text(text: str) -> dict:
+    demographics = {}
+
+    age_match = re.search(r"\b(\d{1,3})\s*[-\s]?(?:year|yr)s?\s*old\b", text)
+    if age_match:
+        demographics["age"] = int(age_match.group(1))
+
+    female_patterns = [
+        r"\b(female|woman|girl|pregnant|pregnancy|breastfeeding|postpartum)\b",
+        r"\b(she|her)\b",
+    ]
+    male_patterns = [
+        r"\b(male|man|boy)\b",
+        r"\b(he|his)\b",
+    ]
+    if any(re.search(pattern, text) for pattern in female_patterns):
+        demographics["gender"] = "female"
+    elif any(re.search(pattern, text) for pattern in male_patterns):
+        demographics["gender"] = "male"
+
+    if re.search(r"\b(pregnant|pregnancy|gestation|antenatal|postpartum|breastfeeding)\b", text):
+        demographics["pregnancy_relevant"] = True
+
+    return demographics
+
+
+def _normalize_demographics(value: dict | None) -> dict:
+    demographics = {}
+    if not isinstance(value, dict):
+        return demographics
+
+    age = value.get("age")
+    try:
+        if age not in (None, ""):
+            demographics["age"] = int(age)
+    except (TypeError, ValueError):
+        pass
+
+    raw_gender = str(value.get("gender") or value.get("sex") or "").strip().lower()
+    if raw_gender in {"m", "male"}:
+        demographics["gender"] = "male"
+    elif raw_gender in {"f", "female"}:
+        demographics["gender"] = "female"
+    elif raw_gender in {"other", "unknown"}:
+        demographics["gender"] = raw_gender
+
+    if value.get("pregnancy_relevant") is True:
+        demographics["pregnancy_relevant"] = True
+
+    return demographics
+
+
+def _merge_demographics(extracted: dict, supplied: dict | None) -> dict:
+    merged = dict(extracted or {})
+    supplied_normalized = _normalize_demographics(supplied)
+    if supplied_normalized:
+        merged.update(supplied_normalized)
+    if merged.get("gender") == "male" and not supplied_normalized.get("pregnancy_relevant"):
+        merged.pop("pregnancy_relevant", None)
+    return merged
+
+
+def _patient_profile_context(demographics: dict | None) -> str:
+    demographics = demographics or {}
+    parts = []
+    if demographics.get("age") is not None:
+        parts.append(f"age {demographics['age']}")
+    if demographics.get("gender"):
+        parts.append(f"sex {demographics['gender']}")
+    if demographics.get("pregnancy_relevant"):
+        parts.append("pregnancy/breastfeeding clinically relevant")
+    return f"Patient profile from database: {', '.join(parts)}." if parts else ""
+
+
+def _note_fingerprint(notes: list[str]) -> str:
+    cleaned = "\n".join(re.sub(r"\s+", " ", str(note or "")).strip().lower() for note in notes)
+    return hashlib.sha256(cleaned.encode("utf-8")).hexdigest()[:12]
+
+
 class SummaryRequest(BaseModel):
     patient_id: str
     notes: list[str]
+    demographics: Optional[dict] = None
 
 
 class MedicationRecommendationRequest(SummaryRequest):
@@ -205,15 +290,24 @@ def doctor_decision_feedback(data: DoctorDecisionFeedbackRequest):
             raise HTTPException(status_code=400, detail="At least one doctor treatment decision is required")
 
         analysis_notes, note_scope = _prepare_notes_for_fast_summary(data.notes)
+        supplied_demographics = _normalize_demographics(data.demographics)
+        profile_context = _patient_profile_context(supplied_demographics)
+        if profile_context:
+            analysis_notes = [profile_context] + analysis_notes
         diagnosis = (data.diagnosis or "").strip()
 
         if not diagnosis:
             medical_entities = _extract_medical_entities(analysis_notes)
+            medical_entities["demographics"] = _merge_demographics(
+                medical_entities.get("demographics", {}),
+                data.demographics,
+            )
             prediction_result = disease_predictor.predict_diseases(
                 symptoms=medical_entities.get("symptoms", []),
                 vital_signs=medical_entities.get("vital_signs", {}),
                 risk_factors=medical_entities.get("risk_factors", []),
                 demographics=medical_entities.get("demographics", {}),
+                notes=analysis_notes,
             )
             predictions = prediction_result.get("predictions", [])
             if predictions:
@@ -318,7 +412,7 @@ def mpesa_stk_push(data: MpesaStkPushRequest):
 
 def _extract_medical_entities_simple(notes: list[str]) -> dict:
     """Extract symptoms, medications, vital signs from patient notes using simple pattern matching"""
-    joined_notes = " ".join(notes).lower()
+    joined_notes = _joined_note_text(notes)
     
     # Common symptom keywords normalized for the local disease model
     symptoms = []
@@ -345,6 +439,7 @@ def _extract_medical_entities_simple(notes: list[str]) -> dict:
         "runny nose": "runny_nose",
         "congestion": "nasal_congestion",
         "body aches": "body_aches",
+        "body pain": "body_aches",
         "chills": "chills",
         "sweating": "sweating",
         "night sweats": "night_sweats",
@@ -366,6 +461,8 @@ def _extract_medical_entities_simple(notes: list[str]) -> dict:
         "maculopapular rash": "maculopapular_rash",
         "red eyes": "red_eyes",
         "loss of taste smell": "loss_of_taste_smell",
+        "loss of taste/smell": "loss_of_taste_smell",
+        "loss of taste or smell": "loss_of_taste_smell",
         "whooping sound": "whooping_sound",
         "post tussive vomiting": "post_tussive_vomiting",
         "neck swelling": "neck_swelling",
@@ -431,19 +528,7 @@ def _extract_medical_entities_simple(notes: list[str]) -> dict:
         if risk in joined_notes:
             risk_factors.append(risk.replace(" ", "_"))
     
-    # Demographics
-    demographics = {}
-    
-    # Age
-    age_match = re.search(r'(\d+)\s*[-\s]?year\s*old', joined_notes)
-    if age_match:
-        demographics["age"] = int(age_match.group(1))
-    
-    # Gender
-    if re.search(r"\b(female|woman)\b", joined_notes):
-        demographics["gender"] = "female"
-    elif re.search(r"\b(male|man)\b", joined_notes):
-        demographics["gender"] = "male"
+    demographics = _extract_demographics_from_text(joined_notes)
     
     return {
         "symptoms": symptoms,
@@ -528,7 +613,11 @@ Generate a comprehensive medical analysis that would be useful for creating a de
 
         text = (response.text or "").strip()
         try:
-            return json.loads(text)
+            entities = json.loads(text)
+            local_demographics = _extract_demographics_from_text(_joined_note_text(notes))
+            entities.setdefault("demographics", {})
+            entities["demographics"].update(local_demographics)
+            return entities
         except:
             return _extract_medical_entities_simple(notes)
     except:
@@ -643,6 +732,21 @@ def _clean_summary_text(value: object, max_chars: int = 180) -> str:
     return text
 
 
+def _presentation_safe_text(value: object, fallback: str = "") -> str:
+    text = _clean_summary_text(value, 220)
+    blocked_phrases = [
+        "use this row for disease-prediction training",
+        "until disease-specific guideline treatment",
+        "treatment_text_requires",
+        "patient_reported_not_prescribing_guidance",
+        "source_notes",
+        "dataset completeness",
+    ]
+    if not text or any(phrase in text.lower() for phrase in blocked_phrases):
+        return fallback
+    return text
+
+
 def _compact_summary_list(items: object, limit: int = 4, max_chars: int = 150) -> list:
     if not isinstance(items, list):
         return []
@@ -700,6 +804,96 @@ def _short_patient_overview(notes: list[str], medical_entities: dict, prediction
     return " ".join(parts)
 
 
+def _condition_mentions_in_notes(notes: list[str], condition: str) -> int:
+    readable = str(condition or "").replace("_", " ").strip().lower()
+    if not readable:
+        return 0
+
+    words = [word for word in re.findall(r"[a-z0-9]+", readable) if len(word) > 2]
+    count = 0
+    for note in notes:
+        lowered = str(note or "").lower()
+        if readable in lowered or readable.replace(" ", "_") in lowered:
+            count += 1
+            continue
+        if words and all(word in lowered for word in words[:3]):
+            count += 1
+            continue
+        diagnosis_match = re.search(r"(?:diagnosis|provisional diagnosis|assessment)\s*:\s*([^\n.]+)", lowered)
+        if diagnosis_match and any(word in diagnosis_match.group(1) for word in words[:2]):
+            count += 1
+
+    return count
+
+
+def _build_main_condition_summary(notes: list[str], medical_entities: dict, predictions: list[dict]) -> list[dict]:
+    symptoms = [str(symptom or "").replace("_", " ").title() for symptom in medical_entities.get("symptoms", [])]
+    repeated_symptoms = _count_terms_in_notes(notes, medical_entities.get("symptoms", []))[:4]
+    recurring_symptom_names = [
+        str(item.get("name", "")).replace("_", " ").title()
+        for item in repeated_symptoms
+        if isinstance(item, dict) and item.get("name")
+    ] or symptoms[:4]
+
+    candidates: dict[str, dict] = {}
+    for prediction in predictions[:8]:
+        disease = str(prediction.get("disease", "")).replace("_", " ").title().strip()
+        if not disease:
+            continue
+
+        mentions = _condition_mentions_in_notes(notes, disease)
+        confidence = float(prediction.get("confidence", 0) or 0)
+        symptom_support = len(recurring_symptom_names)
+        score = confidence + (mentions * 0.2) + (symptom_support * 0.03)
+        candidates[disease.lower()] = {
+            "name": disease,
+            "count": mentions,
+            "confidence": round(confidence, 3),
+            "score": score,
+            "comment": (
+                f"Compared across {len(notes)} patient record(s); "
+                f"{'documented directly in ' + str(mentions) + ' record(s)' if mentions else 'supported by the current symptom pattern'}"
+                f"{' with recurring symptoms: ' + ', '.join(recurring_symptom_names[:3]) if recurring_symptom_names else ''}."
+            ),
+        }
+
+    diagnosis_patterns = [
+        r"(?:diagnosis|provisional diagnosis|assessment)\s*:\s*([^\n.]+)",
+        r"(?:main condition|primary condition)\s*:\s*([^\n.]+)",
+    ]
+    joined = "\n".join(str(note or "") for note in notes)
+    for pattern in diagnosis_patterns:
+        for match in re.finditer(pattern, joined, flags=re.IGNORECASE):
+            disease = _clean_summary_text(match.group(1), 80).strip(" .,:;")
+            if not disease:
+                continue
+            key = disease.lower()
+            existing = candidates.get(key)
+            mentions = _condition_mentions_in_notes(notes, disease)
+            if existing:
+                existing["count"] = max(existing["count"], mentions)
+                existing["score"] += 0.35
+                existing["comment"] = f"Doctor assessment/diagnosis appears in the compared patient notes; reviewed across {len(notes)} record(s)."
+            else:
+                candidates[key] = {
+                    "name": disease.title(),
+                    "count": mentions,
+                    "confidence": 0,
+                    "score": 0.35 + (mentions * 0.2),
+                    "comment": f"Doctor assessment/diagnosis appears in the compared patient notes; reviewed across {len(notes)} record(s).",
+                }
+
+    ranked = sorted(candidates.values(), key=lambda item: item["score"], reverse=True)
+    return [
+        {
+            "name": item["name"],
+            "count": item["count"],
+            "comment": item["comment"],
+        }
+        for item in ranked[:3]
+    ]
+
+
 def _make_summary_concise(summary: dict, notes: list[str], medical_entities: dict, predictions: list[dict]) -> dict:
     concise = summary.copy()
     symptoms = medical_entities.get("symptoms", [])
@@ -707,7 +901,8 @@ def _make_summary_concise(summary: dict, notes: list[str], medical_entities: dic
     total_notes = len(notes)
 
     concise["patient_overview"] = _short_patient_overview(notes, medical_entities, predictions)
-    concise["main_conditions"] = _compact_summary_list(concise.get("main_conditions"), 3)
+    compared_main_conditions = _build_main_condition_summary(notes, medical_entities, predictions)
+    concise["main_conditions"] = compared_main_conditions or _compact_summary_list(concise.get("main_conditions"), 3)
     concise["current_or_recent_medications"] = medications[:5]
     concise["repeated_symptoms"] = _count_terms_in_notes(notes, symptoms)[:5] or symptoms[:5]
     concise["repeated_medications"] = _count_terms_in_notes(notes, medications)[:5] or medications[:5]
@@ -734,7 +929,7 @@ def _title_case_medication(value: str) -> str:
 
 def _clinical_prediction_explanation(prediction: dict) -> str:
     disease = str(prediction.get("disease", "")).replace("_", " ").title() or "the predicted condition"
-    raw = _clean_summary_text(prediction.get("explanation", ""), 180)
+    raw = _presentation_safe_text(prediction.get("explanation", ""), "")
     lowered = raw.lower()
     blocked_phrases = [
         "linearsvc",
@@ -753,12 +948,16 @@ def _clinical_prediction_explanation(prediction: dict) -> str:
 
 
 def _public_prediction(prediction: dict) -> dict:
+    disease = str(prediction.get("disease", "")).replace("_", " ").title()
     return {
-        "disease": str(prediction.get("disease", "")).replace("_", " ").title(),
+        "disease": disease,
         "confidence": round(float(prediction.get("confidence", 0) or 0), 3),
         "explanation": _clinical_prediction_explanation(prediction),
         "urgency": str(prediction.get("urgency", "review")).lower(),
-        "supporting_evidence": _clean_summary_text(prediction.get("supporting_evidence", ""), 120),
+        "supporting_evidence": _presentation_safe_text(
+            prediction.get("supporting_evidence", ""),
+            f"Clinical pattern supports review for {disease}."
+        ),
     }
 
 
@@ -786,6 +985,7 @@ def _generate_medication_recommendations(
     symptoms = [str(symptom).replace("_", " ").title() for symptom in medical_entities.get("symptoms", [])[:8]]
     current_meds = [_title_case_medication(med) for med in medical_entities.get("medications", [])[:10]]
     vitals = medical_entities.get("vital_signs", {})
+    demographics = medical_entities.get("demographics", {}) or {}
     allergy_flags = _extract_allergy_flags(notes)
     option_map: dict[str, dict] = {}
 
@@ -816,11 +1016,11 @@ def _generate_medication_recommendations(
             option["matched_conditions"].append(disease)
             option["confidence"] = max(option["confidence"], round(confidence, 3))
             option["rationale"].append(
-                f"Best fit for {disease}: {clinical_reason}"
+                f"Positive clinical fit for {disease}: {clinical_reason}"
             )
             if evidence.get("positive_rate") or evidence.get("average_rating"):
                 option["rationale"].append(
-                    f"This option has supportive treatment-response data for {disease}; confirm the exact dose and route for this patient."
+                    f"Positive medication match: {drug_name} aligns with the documented {disease} pattern in this patient's notes."
                 )
             option["evidence"].append(
                 {
@@ -834,10 +1034,28 @@ def _generate_medication_recommendations(
     options = []
     for option in option_map.values():
         matched_conditions = list(dict.fromkeys(option["matched_conditions"]))[:4]
-        rationale = list(dict.fromkeys(option["rationale"]))[:3]
-        cautions = [
-            "Before prescribing, confirm allergies, pregnancy status where relevant, renal/hepatic function, interactions, contraindications, and local dosing guidance."
+        rationale = [
+            _presentation_safe_text(text)
+            for text in list(dict.fromkeys(option["rationale"]))
         ]
+        rationale = [text for text in rationale if text][:3]
+        if not rationale and matched_conditions:
+            rationale = [
+                f"Positive medication match: {option['medication']} aligns with the documented {matched_conditions[0]} pattern in this patient's notes."
+            ]
+        gender = str(demographics.get("gender", "")).lower()
+        if gender == "female" or demographics.get("pregnancy_relevant"):
+            safety_caution = (
+                "Before prescribing, confirm allergies, pregnancy/breastfeeding status, renal/hepatic "
+                "function, interactions, contraindications, and local dosing guidance."
+            )
+        else:
+            safety_caution = (
+                "Before prescribing, confirm allergies, renal/hepatic function, interactions, "
+                "contraindications, and local dosing guidance."
+            )
+
+        cautions = [safety_caution]
 
         if allergy_flags:
             cautions.append(f"Notes mention possible allergy/reaction terms: {', '.join(allergy_flags)}.")
@@ -883,14 +1101,16 @@ def _generate_medication_recommendations(
         "patient_context": {
             "symptoms": symptoms,
             "current_or_recent_medications": current_meds,
+            "demographics": demographics,
             "possible_allergy_flags": allergy_flags,
             "notable_vitals": vitals,
             "doctor_question": question or "Which medication options may be appropriate based on this patient's notes?",
+            "note_fingerprint": _note_fingerprint(notes),
         },
         "medication_options": options,
         "disease_predictions": [_public_prediction(prediction) for prediction in predictions[:6]],
         "avoid_or_review": [
-            "Confirm allergies, contraindications, interactions, pregnancy status, age, weight, renal/hepatic function, culture/lab results, and local formulary.",
+            "Confirm allergies, contraindications, interactions, age, weight, renal/hepatic function, culture/lab results, local formulary, and pregnancy status only when clinically relevant to this patient.",
             "For antibiotics, confirm likely bacterial indication and follow antimicrobial stewardship guidance.",
         ],
         "clinician_review_note": "Medication choice should match the confirmed diagnosis, patient safety factors, dose, route, duration, monitoring plan, and counselling needs.",
@@ -1109,6 +1329,10 @@ def patient_summary(data: SummaryRequest):
         # STRICT PATIENT DATA ISOLATION: Use only this patient's notes.
         # Long histories are condensed locally so the endpoint responds quickly.
         analysis_notes, note_scope = _prepare_notes_for_fast_summary(data.notes)
+        supplied_demographics = _normalize_demographics(data.demographics)
+        profile_context = _patient_profile_context(supplied_demographics)
+        if profile_context:
+            analysis_notes = [profile_context] + analysis_notes
         patient_note_count = note_scope["original_count"]
         
         print(f"=== GENERATING AI SUMMARY FOR PATIENT {data.patient_id} ===")
@@ -1117,6 +1341,10 @@ def patient_summary(data: SummaryRequest):
         
         # Step 1: Extract medical entities ONLY from this patient's notes
         medical_entities = _extract_medical_entities(analysis_notes)
+        medical_entities["demographics"] = _merge_demographics(
+            medical_entities.get("demographics", {}),
+            data.demographics,
+        )
         
         # Step 2: Get local cleaned-data disease predictions
         local_predictions = []
@@ -1125,7 +1353,8 @@ def patient_summary(data: SummaryRequest):
                 symptoms=medical_entities.get("symptoms", []),
                 vital_signs=medical_entities.get("vital_signs", {}),
                 risk_factors=medical_entities.get("risk_factors", []),
-                demographics=medical_entities.get("demographics", {})
+                demographics=medical_entities.get("demographics", {}),
+                notes=analysis_notes,
             )
             local_predictions = prediction_result.get("predictions", [])
         except Exception as e:
@@ -1205,15 +1434,24 @@ def medication_recommendation(data: MedicationRecommendationRequest):
         if not cleaned_notes:
             raise HTTPException(status_code=400, detail="No usable notes were provided")
 
-        latest_note_only = cleaned_notes[:1]
+        latest_note_only = cleaned_notes[-1:]
         analysis_notes, note_scope = _prepare_notes_for_fast_summary(latest_note_only)
+        supplied_demographics = _normalize_demographics(data.demographics)
+        profile_context = _patient_profile_context(supplied_demographics)
+        if profile_context:
+            analysis_notes = [profile_context] + analysis_notes
         medical_entities = _extract_medical_entities(analysis_notes)
+        medical_entities["demographics"] = _merge_demographics(
+            medical_entities.get("demographics", {}),
+            data.demographics,
+        )
 
         prediction_result = disease_predictor.predict_diseases(
             symptoms=medical_entities.get("symptoms", []),
             vital_signs=medical_entities.get("vital_signs", {}),
             risk_factors=medical_entities.get("risk_factors", []),
             demographics=medical_entities.get("demographics", {}),
+            notes=analysis_notes,
         )
         predictions = prediction_result.get("predictions", [])
 
@@ -1224,7 +1462,7 @@ def medication_recommendation(data: MedicationRecommendationRequest):
             data.question,
         )
 
-        latest_note_text = analysis_notes[0] if analysis_notes else latest_note_only[0]
+        latest_note_text = next((note for note in analysis_notes if str(note).startswith("Title:")), latest_note_only[0])
         title_match = re.search(r"Title:\s*(.+?)(?:\s+Doctor:|\s+Date:|\s+Note:|$)", latest_note_text)
         date_match = re.search(r"Date:\s*(.+?)(?:\s+Note:|$)", latest_note_text)
         recommendation.setdefault("patient_context", {})

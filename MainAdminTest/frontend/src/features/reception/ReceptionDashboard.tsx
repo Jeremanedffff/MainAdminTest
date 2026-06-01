@@ -14,6 +14,7 @@ import {
   type Prescription,
   type PatientAccount,
   loadPrescriptionsByHospital,
+  testMpesaPayment,
 } from "../hospitalAdmin/hospitalAdminFirestore";
 import {
   BadgePlus,
@@ -44,45 +45,6 @@ type Props = {
 
 type Tab = "search" | "register" | "visits" | "payments" | "processing";
 type PaymentMethod = "ACCOUNT_BALANCE" | "CASH" | "MPESA" | "ECOCASH";
-type MpesaPushResult = {
-  success: boolean;
-  transactionId: string;
-  merchantRequestId?: string;
-  customerMessage?: string;
-};
-
-const API_BASE_URL = "http://127.0.0.1:8001";
-
-async function sendMpesaPush(payload: {
-  phone: string;
-  amount: number;
-  accountReference: string;
-  description: string;
-}): Promise<MpesaPushResult> {
-  const response = await fetch(`${API_BASE_URL}/payments/mpesa/stk-push`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      phone: payload.phone,
-      amount: payload.amount,
-      account_reference: payload.accountReference,
-      transaction_desc: payload.description,
-    }),
-  });
-
-  const body = await response.json().catch(() => ({}));
-
-  if (!response.ok) {
-    throw new Error(body.detail || "MPESA phone prompt failed.");
-  }
-
-  return {
-    success: Boolean(body.success),
-    transactionId: body.transactionId || "",
-    merchantRequestId: body.merchantRequestId || "",
-    customerMessage: body.customerMessage || "",
-  };
-}
 
 export default function ReceptionDashboard({ receptionistId, hospitalId }: Props) {
   const [tab, setTab] = useState<Tab>("search");
@@ -102,6 +64,8 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
   const [paymentPhone, setPaymentPhone] = useState("");
   const [patientAccount, setPatientAccount] = useState<PatientAccount | null>(null);
   const [loadingPatientAccount, setLoadingPatientAccount] = useState(false);
+  const [focusedPaymentPrescriptionId, setFocusedPaymentPrescriptionId] = useState("");
+  const [focusedPaymentPatient, setFocusedPaymentPatient] = useState<PatientRow | null>(null);
 
   // Registration form state
   const [showRegisterForm, setShowRegisterForm] = useState(false);
@@ -131,7 +95,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
   const ui = {
     page: {
       padding: "32px 30px 56px",
-      fontFamily: "system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      fontFamily: "var(--font-family)",
       background:
         "radial-gradient(circle at 12% 10%, rgba(20,184,166,0.14), transparent 28%), radial-gradient(circle at 86% 18%, rgba(59,130,246,0.16), transparent 26%), linear-gradient(180deg, #edf7ff 0%, #f7fbff 34%, #ffffff 100%)",
       minHeight: "calc(100vh - 112px)",
@@ -207,15 +171,15 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       maxWidth: "100%",
     },
     tab: {
-      minHeight: 58,
-      padding: "0 14px",
+      minHeight: 52,
+      padding: "0 16px",
       border: "1px solid rgba(148, 163, 184, 0.28)",
       background: "rgba(255,255,255,0.68)",
       color: "#0f172a",
       cursor: "pointer",
       borderRadius: 14,
-      fontSize: 15,
-      fontWeight: 900,
+      fontSize: 14,
+      fontWeight: 800,
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
@@ -223,15 +187,15 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       whiteSpace: "nowrap" as const,
     },
     tabActive: {
-      minHeight: 66,
+      minHeight: 52,
       padding: "0 16px",
       border: "1px solid rgba(64, 130, 214, 0.18)",
       background: "linear-gradient(135deg, #1f7ae0, #4a90e2)",
       color: "white",
       cursor: "pointer",
-      borderRadius: 16,
-      fontSize: 16,
-      fontWeight: 900,
+      borderRadius: 14,
+      fontSize: 14,
+      fontWeight: 800,
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
@@ -291,6 +255,17 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
     },
     paymentMetricLabel: { fontSize: 12, color: "#5d7088", fontWeight: 900, textTransform: "uppercase" as const },
     paymentMetricValue: { marginTop: 6, fontSize: 20, color: "#102a43", fontWeight: 1000 },
+    mpesaText: { color: "#dc2626", fontWeight: 1000 },
+    mpesaBadge: {
+      background: "#fee2e2",
+      color: "#b91c1c",
+      border: "1px solid #fecaca",
+    },
+    mpesaInput: {
+      border: "1px solid #fecaca",
+      color: "#b91c1c",
+      background: "#fff5f5",
+    },
     paymentCard: {
       border: "1px solid #cde7fb",
       background: "#ffffff",
@@ -322,6 +297,112 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       gap: 12,
       marginTop: 18,
       flexWrap: "wrap" as const,
+    },
+    processingHero: {
+      display: "grid",
+      gridTemplateColumns: "minmax(260px, 1fr) repeat(3, minmax(150px, 0.22fr))",
+      gap: 14,
+      alignItems: "stretch",
+      marginBottom: 18,
+    },
+    processingIntro: {
+      border: "1px solid #cde7fb",
+      background: "linear-gradient(135deg, #f7fbff 0%, #eefafa 100%)",
+      borderRadius: 16,
+      padding: 18,
+      display: "flex",
+      gap: 14,
+      alignItems: "center",
+    },
+    processingIntroIcon: {
+      width: 52,
+      height: 52,
+      borderRadius: 14,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      background: "linear-gradient(135deg, #35b7a5, #4a90e2)",
+      color: "white",
+      flexShrink: 0,
+    },
+    queueStat: {
+      border: "1px solid #dbeafe",
+      background: "#ffffff",
+      borderRadius: 16,
+      padding: 16,
+      boxShadow: "0 12px 26px rgba(15, 23, 42, 0.055)",
+    },
+    queueStatLabel: { fontSize: 12, color: "#64748b", fontWeight: 950, textTransform: "uppercase" as const },
+    queueStatValue: { marginTop: 7, fontSize: 24, color: "#102a43", fontWeight: 1000 },
+    queueList: {
+      display: "grid",
+      gap: 14,
+    },
+    queueCard: {
+      border: "1px solid #d7e7f5",
+      borderRadius: 16,
+      padding: 18,
+      background: "linear-gradient(180deg, #ffffff 0%, #f9fcff 100%)",
+      boxShadow: "0 14px 34px rgba(15, 23, 42, 0.06)",
+      display: "grid",
+      gridTemplateColumns: "minmax(0, 1fr) minmax(220px, auto)",
+      gap: 16,
+      alignItems: "center",
+    },
+    queueIdentity: {
+      display: "grid",
+      gridTemplateColumns: "52px minmax(0, 1fr)",
+      gap: 14,
+      alignItems: "center",
+      minWidth: 0,
+    },
+    queueAvatar: {
+      width: 52,
+      height: 52,
+      borderRadius: 14,
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      color: "#1d4ed8",
+      background: "#eff6ff",
+      border: "1px solid #cfe0f5",
+      flexShrink: 0,
+    },
+    queueName: { color: "#0f172a", fontSize: 18, fontWeight: 1000, lineHeight: 1.15 },
+    queueMeta: {
+      display: "flex",
+      gap: 8,
+      flexWrap: "wrap" as const,
+      marginTop: 8,
+      color: "#53657a",
+      fontSize: 13,
+      fontWeight: 850,
+    },
+    queueChip: {
+      minHeight: 28,
+      padding: "0 10px",
+      borderRadius: 999,
+      background: "#f1f7ff",
+      border: "1px solid #dbeafe",
+      display: "inline-flex",
+      alignItems: "center",
+      gap: 6,
+      whiteSpace: "nowrap" as const,
+    },
+    queueActions: {
+      display: "flex",
+      alignItems: "center",
+      justifyContent: "flex-end",
+      gap: 12,
+      flexWrap: "wrap" as const,
+    },
+    currentPaymentPanel: {
+      marginTop: 18,
+      border: "1px solid rgba(53, 183, 165, 0.35)",
+      background: "linear-gradient(180deg, #ffffff 0%, #f0fbfa 100%)",
+      borderRadius: 18,
+      padding: 22,
+      boxShadow: "0 22px 54px rgba(20, 184, 166, 0.12)",
     },
     sectionHead: {
       display: "flex",
@@ -362,15 +443,15 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       boxShadow: "inset 0 1px 0 rgba(15, 23, 42, 0.03)",
     },
     searchBtn: {
-      minHeight: 66,
-      padding: "0 30px",
+      minHeight: 52,
+      padding: "0 22px",
       background: "linear-gradient(135deg, #1f7ae0, #4a90e2)",
       color: "white",
       border: "1px solid rgba(64, 130, 214, 0.22)",
       borderRadius: 12,
       cursor: "pointer",
-      fontSize: 20,
-      fontWeight: 900,
+      fontSize: 14,
+      fontWeight: 800,
       display: "inline-flex",
       alignItems: "center",
       justifyContent: "center",
@@ -419,14 +500,14 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
     badgeNotPaid: { background: "#fff1f2", border: "1px solid #fecdd3", color: "#9f1239" },
     loading: { textAlign: "center" as const, padding: 46, color: "#64748b", fontSize: 16, fontWeight: 800 },
     btn: {
-      minHeight: 54,
-      padding: "0 24px",
+      minHeight: 52,
+      padding: "0 22px",
       border: "1px solid #cbd5e1",
       background: "#f8fafc",
       color: "#0f172a",
       borderRadius: 12,
       cursor: "pointer",
-      fontSize: 18,
+      fontSize: 14,
       fontWeight: 800,
       display: "inline-flex",
       alignItems: "center",
@@ -435,14 +516,14 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       whiteSpace: "nowrap" as const,
     },
     btnGreen: {
-      minHeight: 54,
-      padding: "0 24px",
+      minHeight: 52,
+      padding: "0 22px",
       border: "1px solid rgba(53, 183, 165, 0.38)",
       background: "linear-gradient(135deg, #35b7a5, #4a90e2)",
       color: "white",
       borderRadius: 12,
-      fontSize: 18,
-      fontWeight: 900,
+      fontSize: 14,
+      fontWeight: 800,
       cursor: "pointer",
       transition: "all 0.2s",
       display: "inline-flex",
@@ -450,6 +531,24 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       justifyContent: "center",
       gap: 8,
       boxShadow: "0 12px 22px rgba(31, 122, 224, 0.2)",
+      whiteSpace: "nowrap" as const,
+    },
+    btnMpesa: {
+      minHeight: 52,
+      padding: "0 22px",
+      border: "1px solid #ef4444",
+      background: "linear-gradient(135deg, #ef4444, #b91c1c)",
+      color: "white",
+      borderRadius: 12,
+      fontSize: 14,
+      fontWeight: 900,
+      cursor: "pointer",
+      transition: "all 0.2s",
+      display: "inline-flex",
+      alignItems: "center",
+      justifyContent: "center",
+      gap: 8,
+      boxShadow: "0 12px 22px rgba(220, 38, 38, 0.22)",
       whiteSpace: "nowrap" as const,
     },
     btnDisabled: {
@@ -597,23 +696,55 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
 
   const processPayment = async (prescriptionId: string) => {
     const prescription = prescriptions.find((p) => p.id === prescriptionId);
-    if (!prescription) return;
-
-    const patient =
-      patients.find((p) => p.id === prescription.patientId) ||
-      (await findPatientById(prescription.patientId));
-
-    if (!patient) {
-      setError("Could not find the patient for this prescription.");
+    if (!prescription) {
+      setError("Could not find this prescription. Please refresh and try again.");
       return;
     }
 
-    await handleSelectPatient(patient);
+    setFocusedPaymentPrescriptionId(prescriptionId);
     setSelectedPrescriptionId(prescriptionId);
     setPaymentMethod("MPESA");
-    setPaymentPhone(patient.phone || "");
-    setTab("search");
-    setSuccess("Patient loaded. Enter the amount and send the MPESA prompt to the phone.");
+    setPaymentAmount("");
+    setTab("processing");
+    setError("");
+    setSuccess("Opening payment panel...");
+
+    const localPatient = patients.find((p) => p.id === prescription.patientId);
+    const fallbackPatient: PatientRow = {
+      id: prescription.patientId,
+      hospitalId,
+      hospitalName: prescription.hospitalName || `Hospital ${hospitalId}`,
+      hospitalCode: "",
+      districtCode: "",
+      fullName: prescription.patientName,
+      sex: "MALE",
+      age: 0,
+      phone: "",
+      status: "ACTIVE",
+      registeredBy: "ADMIN",
+      createdAt: prescription.createdAtISO,
+    };
+
+    const immediatePatient = localPatient || fallbackPatient;
+    setSelectedPatient(immediatePatient);
+    setFocusedPaymentPatient(immediatePatient);
+    setPaymentPhone(immediatePatient.phone || "");
+
+    let account = await getPatientAccount(immediatePatient.id, hospitalId).catch(() => null);
+    if (!account) {
+      account = await createPatientAccount(immediatePatient.id, hospitalId, immediatePatient.hospitalName).catch(() => null);
+    }
+    setPatientAccount(account);
+
+    const foundPatient = localPatient || (await findPatientById(prescription.patientId).catch(() => null));
+    if (foundPatient) {
+      setSelectedPatient(foundPatient);
+      setFocusedPaymentPatient(foundPatient);
+      setPaymentPhone(foundPatient.phone || "");
+      setSuccess("Patient loaded. Enter the amount and send the MPESA prompt to the phone.");
+    } else {
+      setSuccess("Payment panel opened. Enter the patient's MPESA phone number to send the prompt.");
+    }
   };
 
   const filteredPatients = useMemo(() => {
@@ -876,12 +1007,10 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
     setSuccess("");
 
     try {
-      const result = await sendMpesaPush({
-        phone: paymentPhone.trim(),
-        amount,
-        accountReference: "HealthSphere",
-        description: `Prescription ${selectedPrescriptionId}`,
-      });
+      const promptPhone = paymentPhone.trim() || selectedPatient.phone || "";
+      setSuccess(`Sending MPESA prompt to ${promptPhone}. Ask the patient to check their phone and enter the MPESA PIN.`);
+
+      const result = await testMpesaPayment(promptPhone, amount);
 
       if (!result.success) {
         throw new Error("MPESA did not accept the payment request.");
@@ -897,10 +1026,11 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
         )
       );
       setSuccess(
-        `Prescription paid by MPESA. The prompt was sent to ${paymentPhone} and the patient confirms with their MPESA PIN. Receipt: ${receiptNo}`
+        `MPESA prompt sent to ${promptPhone}. Patient must approve with their MPESA PIN. Receipt: ${receiptNo}`
       );
       setPaymentAmount("");
       setSelectedPrescriptionId("");
+      setFocusedPaymentPrescriptionId("");
     } catch (e: any) {
       setError(e?.message || "Failed to send MPESA payment prompt.");
     } finally {
@@ -917,9 +1047,15 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       setSelectedPrescriptionId("");
       return;
     }
+    if (
+      selectedPrescriptionId &&
+      selectedPatientUnpaidPrescriptions.some((rx) => rx.id === selectedPrescriptionId)
+    ) {
+      return;
+    }
     const firstUnpaid = selectedPatientUnpaidPrescriptions[0];
     setSelectedPrescriptionId(firstUnpaid ? firstUnpaid.id : "");
-  }, [selectedPatient, selectedPatientUnpaidPrescriptions]);
+  }, [selectedPatient, selectedPatientUnpaidPrescriptions, selectedPrescriptionId]);
 
   useEffect(() => {
     if (!searchQuery.trim()) {
@@ -1121,9 +1257,9 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
 
       {selectedPatient ? (
         <div style={ui.paymentPanel}>
-          <div style={ui.paymentHeader}>
-            <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
-              <span style={ui.patientAvatar}><Wallet size={24} /></span>
+            <div style={ui.paymentHeader}>
+              <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+              <span style={{ ...ui.patientAvatar, ...ui.mpesaBadge }}><Wallet size={24} /></span>
               <div style={{ minWidth: 0 }}>
                 <div style={ui.paymentTitle}>Payment Panel</div>
                 <div style={ui.paymentSub}>
@@ -1156,7 +1292,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
             </div>
             <div style={ui.paymentMetric}>
               <div style={ui.paymentMetricLabel}>Payment Method</div>
-              <div style={ui.paymentMetricValue}>MPESA</div>
+              <div style={{ ...ui.paymentMetricValue, ...ui.mpesaText }}>MPESA</div>
             </div>
           </div>
 
@@ -1171,7 +1307,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
               fontWeight: 900,
               lineHeight: 1.45,
             }}>
-              Patient account has no available money. Use direct MPESA prescription payment below so the patient can confirm with their MPESA PIN on the phone.
+              Patient account has no available money. Use direct <span style={ui.mpesaText}>MPESA</span> prescription payment below so the patient can confirm with their <span style={ui.mpesaText}>MPESA</span> PIN on the phone.
             </div>
           ) : null}
 
@@ -1237,7 +1373,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
                 <select
                   value={paymentMethod}
                   onChange={(e) => setPaymentMethod(e.target.value as PaymentMethod)}
-                    style={ui.paymentInput}
+                    style={{ ...ui.paymentInput, ...ui.mpesaInput }}
                 >
                   <option value="MPESA">MPESA</option>
                 </select>
@@ -1262,7 +1398,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
                   Confirm the amount with the patient before sending the prompt.
                 </div>
               <button
-                  style={{ ...ui.btnGreen, minWidth: 220 }}
+                  style={{ ...ui.btnMpesa, minWidth: 220 }}
                 onClick={paySelectedPrescription}
                 disabled={processingPayment}
               >
@@ -1291,7 +1427,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       </div>
 
       {showRegisterForm ? (
-        <div style={ui.registrationFormShell}>
+        <div className="reception-registration-form" style={ui.registrationFormShell}>
           <div style={ui.registrationTopLine}>
             <span>Patient Information</span>
             <span>{registrationProgress}%</span>
@@ -1584,6 +1720,28 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
 
   // Payment Processing Content - for unpaid prescriptions
   const paymentProcessingContent = () => {
+    const unpaidPrescriptions = prescriptions.filter((p) => p.paymentStatus === "NOT_PAID");
+    const pendingPatientCount = new Set(unpaidPrescriptions.map((p) => p.patientId)).size;
+    const todayPendingCount = unpaidPrescriptions.filter(
+      (p) => p.createdAtISO.slice(0, 10) === new Date().toISOString().slice(0, 10)
+    ).length;
+    const focusedPaymentPrescription = focusedPaymentPrescriptionId
+      ? unpaidPrescriptions.find((p) => p.id === focusedPaymentPrescriptionId)
+      : undefined;
+    const visibleUnpaidPrescriptions = focusedPaymentPrescription
+      ? [focusedPaymentPrescription]
+      : unpaidPrescriptions;
+    const paymentPanelOpen = Boolean(focusedPaymentPrescriptionId && focusedPaymentPatient);
+    const cancelFocusedPayment = () => {
+      setFocusedPaymentPrescriptionId("");
+      setFocusedPaymentPatient(null);
+      setSelectedPrescriptionId("");
+      setPaymentAmount("");
+      setPaymentPhone("");
+      setSuccess("");
+      setError("");
+    };
+
     return (
     <div style={ui.section}>
       <div style={ui.sectionHead}>
@@ -1591,52 +1749,178 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
           <div style={{ ...ui.sectionIcon, background: "#eefafa", color: "#287dba" }}><Smartphone size={22} /></div>
           <div>
             <div style={ui.sectionTitle}>Payment Processing</div>
-            <div style={ui.sectionSub}>Open a pending prescription and send an MPESA phone prompt</div>
+            <div style={ui.sectionSub}>Focused <span style={ui.mpesaText}>MPESA</span> queue for unpaid prescriptions</div>
           </div>
+        </div>
+        {paymentPanelOpen ? (
+          <button
+            style={ui.btn}
+            onClick={cancelFocusedPayment}
+          >
+            Show Pending Queue
+          </button>
+        ) : null}
+      </div>
+
+      <div style={ui.processingHero}>
+        <div style={ui.processingIntro}>
+          <div style={ui.processingIntroIcon}><PhoneCall size={24} /></div>
+          <div>
+            <div style={{ color: "#102a43", fontSize: 18, fontWeight: 1000 }}><span style={ui.mpesaText}>MPESA</span> prompt desk</div>
+            <div style={{ color: "#5d7088", fontSize: 13, fontWeight: 800, marginTop: 4, lineHeight: 1.45 }}>
+              Pick one unpaid prescription, confirm the phone and amount, then send the PIN prompt to the patient.
+            </div>
+          </div>
+        </div>
+        <div style={ui.queueStat}>
+          <div style={ui.queueStatLabel}>Pending RX</div>
+          <div style={ui.queueStatValue}>{unpaidPrescriptions.length}</div>
+        </div>
+        <div style={ui.queueStat}>
+          <div style={ui.queueStatLabel}>Patients</div>
+          <div style={ui.queueStatValue}>{pendingPatientCount}</div>
+        </div>
+        <div style={ui.queueStat}>
+          <div style={ui.queueStatLabel}>Today</div>
+          <div style={ui.queueStatValue}>{todayPendingCount}</div>
         </div>
       </div>
 
       {loading ? (
         <div style={ui.loading}>Loading prescriptions...</div>
-      ) : prescriptions.filter(p => p.paymentStatus === "NOT_PAID").length === 0 ? (
+      ) : unpaidPrescriptions.length === 0 ? (
         <div style={ui.loading}>No pending payments</div>
       ) : (
-        <div>
-          {prescriptions
-            .filter(p => p.paymentStatus === "NOT_PAID")
-            .map((prescription: Prescription) => (
-              <div key={prescription.id} style={ui.patientCard}>
-                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={ui.queueList}>
+          {visibleUnpaidPrescriptions.map((prescription: Prescription) => (
+              <div key={prescription.id} style={ui.queueCard}>
+                <div style={ui.queueIdentity}>
+                  <div style={ui.queueAvatar}>
+                    <ReceiptText size={23} />
+                  </div>
                   <div>
-                    <div style={{ fontWeight: 800, fontSize: 14, color: "#000000" }}>
+                    <div style={ui.queueName}>
                       {prescription.patientName}
                     </div>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2, color: "#666666" }}>
-                      RX: {prescription.id} - Patient ID: {prescription.patientId}
-                    </div>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2, color: "#666666" }}>
-                      Doctor: {prescription.doctorName}
-                    </div>
-                    <div style={{ fontSize: 12, opacity: 0.7, marginTop: 2, color: "#666666" }}>
-                      Created: {prescription.createdAtISO.slice(0, 10)}
+                    <div style={ui.queueMeta}>
+                      <span style={ui.queueChip}><ReceiptText size={13} /> {prescription.id}</span>
+                      <span style={ui.queueChip}><IdCard size={13} /> {prescription.patientId}</span>
+                      <span style={ui.queueChip}><UserRound size={13} /> Dr. {prescription.doctorName}</span>
+                      <span style={ui.queueChip}><Calendar size={13} /> {prescription.createdAtISO.slice(0, 10)}</span>
                     </div>
                   </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "flex-end" }}>
+                </div>
+                <div style={ui.queueActions}>
                     <span style={{ ...ui.badge, ...ui.badgeNotPaid }}>
                       Not Paid
                     </span>
-                    <button
-                      style={ui.btnGreen}
-                      onClick={() => processPayment(prescription.id)}
-                      disabled={processingPayment}
-                    >
-                      <Wallet size={14} style={{ display: "inline", marginRight: 4 }} />
-                      Open Payment Panel
-                    </button>
-                  </div>
+                    {!paymentPanelOpen ? (
+                      <button
+                        style={ui.btnGreen}
+                        onClick={() => processPayment(prescription.id)}
+                        disabled={processingPayment}
+                      >
+                        <Wallet size={14} style={{ display: "inline", marginRight: 4 }} />
+                        Open Payment Panel
+                      </button>
+                    ) : null}
                 </div>
               </div>
             ))}
+          {paymentPanelOpen && focusedPaymentPatient ? (
+            <div style={ui.currentPaymentPanel}>
+              <div style={ui.paymentHeader}>
+                <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
+                  <span style={{ ...ui.patientAvatar, ...ui.mpesaBadge }}><Wallet size={24} /></span>
+                  <div style={{ minWidth: 0 }}>
+                    <div style={ui.paymentTitle}>Current Payment</div>
+                    <div style={ui.paymentSub}>
+                      {focusedPaymentPatient.fullName} - {focusedPaymentPatient.id}
+                    </div>
+                  </div>
+                </div>
+                <div style={ui.paymentBadge}>
+                  <Hospital size={16} />
+                  {focusedPaymentPatient.hospitalName || focusedPaymentPatient.hospitalId}
+                </div>
+              </div>
+
+              {selectedPaymentPrescription ? (
+                <div style={{ marginBottom: 14, padding: 14, borderRadius: 14, background: "#f8fbff", border: "1px solid #dbeafe" }}>
+                  <div style={{ fontSize: 13, color: "#5d7088", fontWeight: 900 }}>Selected Prescription</div>
+                  <div style={{ marginTop: 5, fontSize: 15, color: "#102a43", fontWeight: 1000 }}>
+                    {selectedPaymentPrescription.id} - Dr. {selectedPaymentPrescription.doctorName}
+                  </div>
+                  <div style={{ marginTop: 4, fontSize: 13, color: "#5d7088", fontWeight: 800 }}>
+                    Created {selectedPaymentPrescription.createdAtISO.slice(0, 10)}
+                  </div>
+                </div>
+              ) : null}
+
+              <div style={ui.paymentFormGrid}>
+                <label style={ui.fieldLabel}>
+                  Prescription
+                  <select
+                    value={selectedPrescriptionId}
+                    onChange={(e) => {
+                      setSelectedPrescriptionId(e.target.value);
+                      setFocusedPaymentPrescriptionId(e.target.value);
+                    }}
+                    style={ui.paymentInput}
+                  >
+                    {selectedPatientUnpaidPrescriptions.map((rx) => (
+                      <option key={rx.id} value={rx.id}>
+                        {rx.id} - {rx.doctorName} - {rx.createdAtISO.slice(0, 10)}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+
+                <label style={ui.fieldLabel}>
+                  Amount (LSL)
+                  <input
+                    type="number"
+                    value={paymentAmount}
+                    onChange={(e) => setPaymentAmount(e.target.value)}
+                    placeholder="Enter amount to charge"
+                    style={ui.paymentInput}
+                  />
+                </label>
+
+                <label style={ui.fieldLabel}>
+                  Phone Number
+                  <input
+                    type="tel"
+                    value={paymentPhone}
+                    onChange={(e) => setPaymentPhone(e.target.value)}
+                    placeholder="Enter mobile money phone"
+                    style={ui.paymentInput}
+                  />
+                </label>
+              </div>
+
+              <div style={ui.paymentActionRow}>
+                <div style={{ color: "#5d7088", fontSize: 13, fontWeight: 800, flex: "1 1 240px" }}>
+                  Send the <span style={ui.mpesaText}>MPESA</span> prompt and ask the patient to approve with their PIN.
+                </div>
+                <button
+                  style={ui.btn}
+                  onClick={cancelFocusedPayment}
+                  disabled={processingPayment}
+                >
+                  Cancel Payment
+                </button>
+                <button
+                  style={{ ...ui.btnMpesa, minWidth: 220 }}
+                  onClick={paySelectedPrescription}
+                  disabled={processingPayment}
+                >
+                  <PhoneCall size={18} />
+                  {processingPayment ? "Sending MPESA Prompt..." : "Send MPESA Prompt"}
+                </button>
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
     </div>
@@ -1659,7 +1943,3 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
     </div>
   );
 }
-
-
-
-
