@@ -1,4 +1,5 @@
 import { useState, useEffect } from "react";
+import { apiUrl } from "../../utils/api";
 
 interface Symptom {
   name: string;
@@ -41,7 +42,7 @@ export default function DiseasePredictor() {
 
   const loadAvailableSymptoms = async () => {
     try {
-      const response = await fetch("http://localhost:8001/medical/symptoms");
+      const response = await fetch(apiUrl("/medical/symptoms"));
       const data = await response.json();
       if (data.symptoms) {
         setSymptoms(data.symptoms.map((sym: string) => ({ name: sym, selected: false })));
@@ -103,7 +104,7 @@ export default function DiseasePredictor() {
         } : undefined
       };
 
-      const response = await fetch("http://localhost:8001/medical/predict-disease", {
+      const response = await fetch(apiUrl("/medical/predict-disease"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -131,7 +132,7 @@ export default function DiseasePredictor() {
     setLoading(true);
     
     try {
-      const response = await fetch("http://localhost:8001/medical/disease-info", {
+      const response = await fetch(apiUrl("/medical/disease-info"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

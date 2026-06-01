@@ -31,18 +31,28 @@ load_dotenv()
 
 app = FastAPI()
 
+LOCAL_CORS_ORIGINS = [
+    "http://localhost:3000",
+    "http://127.0.0.1:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "http://localhost:5174",
+    "http://127.0.0.1:5174",
+    "http://localhost:5175",
+    "http://127.0.0.1:5175",
+]
+
+DEPLOYED_CORS_ORIGINS = [
+    origin.strip()
+    for origin in (
+        os.getenv("FRONTEND_URL", "") + "," + os.getenv("CORS_ORIGINS", "")
+    ).split(",")
+    if origin.strip()
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:3000",
-        "http://127.0.0.1:3000",
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "http://localhost:5174",
-        "http://127.0.0.1:5174",
-        "http://localhost:5175",
-        "http://127.0.0.1:5175",
-    ],
+    allow_origins=LOCAL_CORS_ORIGINS + DEPLOYED_CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -266,6 +276,10 @@ def execute_vodacom_mpesa_request(api_context: APIContext, action: str):
 @app.get("/")
 def root():
     return {"message": "Gemini backend is running"}
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 @app.get("/ai/disease-model/status")
 def disease_model_status():
@@ -1486,4 +1500,4 @@ if __name__ == "__main__":
     print("Starting Health-Sphere AI Backend Server...")
     print("Patient Data Isolation: ENABLED - Each patient analyzed separately")
     print("AI Summary Generation: ACTIVE - Using local cleaned-data AI + fallback")
-    uvicorn.run(app, host="0.0.0.0", port=8001)
+    uvicorn.run(app, host="0.0.0.0", port=int(os.getenv("PORT", "8001")))

@@ -1,6 +1,8 @@
+import { apiUrl } from "../../utils/api";
+
 export async function loginUser(identifier: string, password: string) {
 
-  const res = await fetch("http://localhost:8001/auth/login", {
+  const res = await fetch(apiUrl("/auth/login"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json"

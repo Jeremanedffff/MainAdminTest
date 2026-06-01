@@ -14,6 +14,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "../../firebase/firebase";
+import { apiUrl } from "../../utils/api";
 
 export type WorkerRole = "DOCTOR" | "PHARMACIST" | "RECEPTIONIST" | "LAB_STAFF";
 
@@ -1889,7 +1890,7 @@ export async function getPatientDepositHistory(patientId: string, hospitalId: st
 
 // Test payment APIs (for development)
 export async function testMpesaPayment(phone: string, amount: number): Promise<{ success: boolean; transactionId: string }> {
-  const response = await fetch("http://127.0.0.1:8001/payments/mpesa/stk-push", {
+  const response = await fetch(apiUrl("/payments/mpesa/stk-push"), {
     method: "POST",
     headers: {
       "Content-Type": "application/json",

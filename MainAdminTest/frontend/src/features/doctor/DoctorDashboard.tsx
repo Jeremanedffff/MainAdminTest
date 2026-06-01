@@ -34,6 +34,7 @@ import {
   type LabRequest,
   type LabTest,
 } from "../hospitalAdmin/hospitalAdminFirestore";
+import { apiUrl } from "../../utils/api";
 
 type Props = {
   doctorId: string;
@@ -662,7 +663,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
     const timeoutId = setTimeout(() => controller.abort(), 8000);
 
     try {
-      const response = await fetch("http://127.0.0.1:8001/ai/medication-recommendation", {
+      const response = await fetch(apiUrl("/ai/medication-recommendation"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -731,7 +732,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 8000);
       
-      const response = await fetch("http://127.0.0.1:8001/ai/patient-summary", {
+      const response = await fetch(apiUrl("/ai/patient-summary"), {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -999,7 +1000,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
         .join("; ")}`,
     ].filter(Boolean);
 
-    const response = await fetch("http://127.0.0.1:8001/ai/doctor-decision-feedback", {
+    const response = await fetch(apiUrl("/ai/doctor-decision-feedback"), {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
