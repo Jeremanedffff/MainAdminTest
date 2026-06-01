@@ -355,7 +355,7 @@ const SettingsAdminAccounts = () => {
       {/* Add Admin Modal */}
       {showAddAdmin && (
         <div style={styles.overlay}>
-          <div style={styles.modal}>
+          <div className="animated-form-surface" style={styles.modal}>
             <h3 style={styles.modalTitle}>Add New Admin</h3>
             <div style={styles.formGroup}>
               <label style={styles.label}>Name</label>
@@ -430,7 +430,7 @@ const SettingsAdminAccounts = () => {
       {/* Password Reset Modal */}
       {showPasswordReset && selectedAdmin && (
         <div style={styles.overlay}>
-          <div style={styles.modal}>
+          <div className="animated-form-surface" style={styles.modal}>
             <h3 style={styles.modalTitle}>Reset Password</h3>
             <p style={styles.modalText}>
               Are you sure you want to reset the password for <strong>{selectedAdmin.email}</strong>?

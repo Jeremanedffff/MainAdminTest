@@ -46,6 +46,27 @@ export type PatientRow = {
   bloodGroup?: string;
   chronicConditions?: string[];
   allergies?: string;
+  registrationDetails?: PatientRegistrationDetails;
+  address?: PatientAddress;
+};
+
+export type PatientRegistrationDetails = {
+  registrationCheckId?: string;
+  healthCareNumber?: string;
+  registrationLocation?: string;
+  registrationDate?: string;
+  registrationTime?: string;
+  hospitalName?: string;
+  hospitalLicenseNumber?: string;
+};
+
+export type PatientAddress = {
+  streetAddress?: string;
+  streetAddressLine2?: string;
+  city?: string;
+  region?: string;
+  postalCode?: string;
+  country?: string;
 };
 
 export type PatientNoteRow = {
@@ -178,13 +199,29 @@ export type LabRequest = {
   requestDate: string; // YYYY-MM-DD format
   requestTimeISO: string; // Full ISO timestamp
   tests: LabTest[];
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+  status:
+    | "PENDING_SAMPLE_COLLECTION"
+    | "SAMPLE_COLLECTED"
+    | "PENDING_VERIFICATION"
+    | "RESULTS_RELEASED"
+    | "CANCELLED"
+    | "PENDING"
+    | "IN_PROGRESS"
+    | "COMPLETED";
   priority: "ROUTINE" | "URGENT" | "STAT";
   clinicalNotes?: string;
   labTechnicianId?: string;
   labTechnicianName?: string;
+  sampleCollectedAt?: string;
   completedAt?: string;
   results?: LabResult[];
+  reviewStatus?: "DRAFT" | "PENDING_REVIEW" | "REVIEWED" | "AUTHORIZED";
+  reviewedBy?: string;
+  reviewedAt?: string;
+  authorizedBy?: string;
+  authorizationRole?: "SENIOR_LAB_SCIENTIST" | "LABORATORY_SCIENTIST" | "PATHOLOGIST" | "LAB_MANAGER";
+  authorizedAt?: string;
+  releasedAt?: string;
 };
 
 export type LabTest = {
@@ -202,7 +239,7 @@ export type LabResult = {
   value: string;
   unit?: string;
   referenceRange?: string;
-  status: "NORMAL" | "ABNORMAL" | "CRITICAL";
+  status: "" | "NORMAL" | "ABNORMAL" | "CRITICAL";
   notes?: string;
   completedAt: string;
 };
@@ -236,6 +273,8 @@ function mapPatientDoc(docId: string, data: any): PatientRow {
     bloodGroup: data.clinicalFacts?.bloodGroup || data.bloodGroup || "",
     chronicConditions: data.clinicalFacts?.chronicConditions || data.chronicConditions || [],
     allergies: data.clinicalFacts?.allergies || data.allergies || "",
+    registrationDetails: data.registrationDetails || {},
+    address: data.address || {},
   };
 }
 
@@ -284,6 +323,8 @@ export type HospitalInfo = {
   name: string;
   location: string;
   country: string;
+  licenseNumber?: string;
+  defaultRegistrationLocation?: string;
   status: "ACTIVE" | "DISABLED";
   maxAdmins: number;
   createdAtISO: string;
@@ -332,6 +373,8 @@ export type CreatePatientByAdminPayload = {
   phone: string;
   email?: string;
   password: string;
+  registrationDetails?: PatientRegistrationDetails;
+  address?: PatientAddress;
 };
 
 export type UpdatePatientPayload = {
@@ -343,6 +386,8 @@ export type UpdatePatientPayload = {
   email?: string;
   status: "ACTIVE" | "DISABLED";
   password?: string;
+  registrationDetails?: PatientRegistrationDetails;
+  address?: PatientAddress;
 };
 
 function normalizePhone(p: string) {
@@ -409,6 +454,8 @@ export async function loadHospitalById(hospitalId: string): Promise<HospitalInfo
     name: data.name || "",
     location: data.location || "",
     country: data.country || "Lesotho",
+    licenseNumber: data.licenseNumber || data.licenceNumber || "",
+    defaultRegistrationLocation: data.defaultRegistrationLocation || "Reception",
     status: data.status || "ACTIVE",
     maxAdmins: Number(data.maxAdmins || 2),
     createdAtISO: data.createdAtISO || "",
@@ -421,6 +468,8 @@ export async function updateHospitalInfo(
     name: string;
     location: string;
     country: string;
+    licenseNumber?: string;
+    defaultRegistrationLocation?: string;
     status: "ACTIVE" | "DISABLED";
   }
 ): Promise<void> {
@@ -428,6 +477,8 @@ export async function updateHospitalInfo(
     name: payload.name.trim(),
     location: payload.location.trim(),
     country: payload.country.trim(),
+    licenseNumber: payload.licenseNumber?.trim() || "",
+    defaultRegistrationLocation: payload.defaultRegistrationLocation?.trim() || "Reception",
     status: payload.status,
   });
 }
@@ -622,6 +673,39 @@ export async function generatePatientId(
   return `${cleanDistrict}-${cleanHospital}-${String(next).padStart(4, "0")}`;
 }
 
+export async function generateRegistrationCheckId(
+  districtCode: string,
+  hospitalCode: string
+): Promise<string> {
+  const cleanDistrict = districtCode.trim().toUpperCase();
+  const cleanHospital = hospitalCode.trim().toUpperCase();
+  const today = new Date().toISOString().slice(0, 10).replace(/-/g, "");
+
+  const counterId = `registration-check-${cleanDistrict}-${cleanHospital}-${today}`;
+  const counterRef = doc(db, "counters", counterId);
+
+  const next = await runTransaction(db, async (tx) => {
+    const snap = await tx.get(counterRef);
+    const current = snap.exists() ? Number((snap.data() as any).seq || 0) : 0;
+    const updated = current + 1;
+
+    tx.set(
+      counterRef,
+      {
+        seq: updated,
+        districtCode: cleanDistrict,
+        hospitalCode: cleanHospital,
+        date: today,
+      },
+      { merge: true }
+    );
+
+    return updated;
+  });
+
+  return `REG-${cleanDistrict}-${cleanHospital}-${today}-${String(next).padStart(3, "0")}`;
+}
+
 export async function createPatientByAdminFirestore(
   payload: CreatePatientByAdminPayload
 ): Promise<PatientRow> {
@@ -654,6 +738,7 @@ export async function createPatientByAdminFirestore(
   if (!phoneSnap.empty) throw new Error("This phone is already used.");
 
   const patientId = await generatePatientId(payload.districtCode, payload.hospitalCode);
+  const registrationCheckId = await generateRegistrationCheckId(payload.districtCode, payload.hospitalCode);
   const createdAtISO = new Date().toISOString();
 
   const userDoc = {
@@ -682,9 +767,27 @@ export async function createPatientByAdminFirestore(
     sex: payload.sex,
     age: payload.age,
     phone,
+    password,
     status: "ACTIVE",
     registeredBy: "ADMIN",
     createdAtISO,
+    registrationDetails: {
+      registrationCheckId,
+      healthCareNumber: payload.registrationDetails?.healthCareNumber?.trim() || "",
+      registrationLocation: payload.registrationDetails?.registrationLocation?.trim() || "",
+      registrationDate: payload.registrationDetails?.registrationDate || createdAtISO.slice(0, 10),
+      registrationTime: payload.registrationDetails?.registrationTime || createdAtISO.slice(11, 16),
+      hospitalName: payload.registrationDetails?.hospitalName?.trim() || payload.hospitalName,
+      hospitalLicenseNumber: payload.registrationDetails?.hospitalLicenseNumber?.trim() || "",
+    },
+    address: {
+      streetAddress: payload.address?.streetAddress?.trim() || "",
+      streetAddressLine2: payload.address?.streetAddressLine2?.trim() || "",
+      city: payload.address?.city?.trim() || "",
+      region: payload.address?.region?.trim() || "",
+      postalCode: payload.address?.postalCode?.trim() || "",
+      country: payload.address?.country?.trim() || "Lesotho",
+    },
     ...(hasEmail ? { email: rawEmail } : {}),
   };
 
@@ -705,6 +808,8 @@ export async function createPatientByAdminFirestore(
     status: "ACTIVE",
     registeredBy: "ADMIN",
     createdAt: createdAtISO.slice(0, 10),
+    registrationDetails: patientDoc.registrationDetails,
+    address: patientDoc.address,
   };
 }
 
@@ -734,6 +839,31 @@ export async function updatePatientFirestore(
     age: payload.age,
     phone,
     status: payload.status,
+    ...(payload.registrationDetails
+      ? {
+          registrationDetails: {
+            registrationCheckId: payload.registrationDetails.registrationCheckId?.trim() || "",
+            healthCareNumber: payload.registrationDetails.healthCareNumber?.trim() || "",
+            registrationLocation: payload.registrationDetails.registrationLocation?.trim() || "",
+            registrationDate: payload.registrationDetails.registrationDate || "",
+            registrationTime: payload.registrationDetails.registrationTime || "",
+            hospitalName: payload.registrationDetails.hospitalName?.trim() || "",
+            hospitalLicenseNumber: payload.registrationDetails.hospitalLicenseNumber?.trim() || "",
+          },
+        }
+      : {}),
+    ...(payload.address
+      ? {
+          address: {
+            streetAddress: payload.address.streetAddress?.trim() || "",
+            streetAddressLine2: payload.address.streetAddressLine2?.trim() || "",
+            city: payload.address.city?.trim() || "",
+            region: payload.address.region?.trim() || "",
+            postalCode: payload.address.postalCode?.trim() || "",
+            country: payload.address.country?.trim() || "Lesotho",
+          },
+        }
+      : {}),
     ...(hasEmail ? { email: rawEmail } : { email: "" }),
   });
 
@@ -1272,7 +1402,8 @@ export async function createLabRequest(payload: {
     requestDate: today,
     requestTimeISO,
     tests: payload.tests,
-    status: "PENDING",
+    status: "PENDING_SAMPLE_COLLECTION",
+    reviewStatus: "DRAFT",
     priority: payload.priority,
     clinicalNotes: payload.clinicalNotes?.trim() || "",
   });
@@ -1285,7 +1416,7 @@ export async function loadPendingLabRequests(hospitalId: string): Promise<LabReq
   const q = query(
     requestsRef,
     where("hospitalId", "==", hospitalId),
-    where("status", "in", ["PENDING", "IN_PROGRESS"])
+    where("status", "in", ["PENDING_SAMPLE_COLLECTION", "SAMPLE_COLLECTED", "PENDING_VERIFICATION", "PENDING", "IN_PROGRESS"])
   );
   const snap = await getDocs(q);
 
@@ -1303,13 +1434,21 @@ export async function loadPendingLabRequests(hospitalId: string): Promise<LabReq
         requestDate: data.requestDate,
         requestTimeISO: data.requestTimeISO,
         tests: data.tests || [],
-        status: data.status || "PENDING",
+        status: data.status || "PENDING_SAMPLE_COLLECTION",
         priority: data.priority || "ROUTINE",
         clinicalNotes: data.clinicalNotes,
         labTechnicianId: data.labTechnicianId,
         labTechnicianName: data.labTechnicianName,
+        sampleCollectedAt: data.sampleCollectedAt,
         completedAt: data.completedAt,
         results: data.results || [],
+        reviewStatus: data.reviewStatus || "DRAFT",
+        reviewedBy: data.reviewedBy,
+        reviewedAt: data.reviewedAt,
+        authorizedBy: data.authorizedBy,
+        authorizationRole: data.authorizationRole,
+        authorizedAt: data.authorizedAt,
+        releasedAt: data.releasedAt,
       };
     })
     .sort((a, b) => {
@@ -1331,7 +1470,7 @@ export async function findLabRequestByPatientId(patientId: string): Promise<LabR
   const q = query(
     requestsRef,
     where("patientId", "==", patientId),
-    where("status", "in", ["PENDING", "IN_PROGRESS"]),
+    where("status", "in", ["PENDING_SAMPLE_COLLECTION", "SAMPLE_COLLECTED", "PENDING_VERIFICATION", "PENDING", "IN_PROGRESS"]),
     limit(1)
   );
   const snap = await getDocs(q);
@@ -1350,28 +1489,37 @@ export async function findLabRequestByPatientId(patientId: string): Promise<LabR
     requestDate: data.requestDate,
     requestTimeISO: data.requestTimeISO,
     tests: data.tests || [],
-    status: data.status || "PENDING",
+    status: data.status || "PENDING_SAMPLE_COLLECTION",
     priority: data.priority || "ROUTINE",
     clinicalNotes: data.clinicalNotes,
     labTechnicianId: data.labTechnicianId,
     labTechnicianName: data.labTechnicianName,
+    sampleCollectedAt: data.sampleCollectedAt,
     completedAt: data.completedAt,
     results: data.results || [],
+    reviewStatus: data.reviewStatus || "DRAFT",
+    reviewedBy: data.reviewedBy,
+    reviewedAt: data.reviewedAt,
+    authorizedBy: data.authorizedBy,
+    authorizationRole: data.authorizationRole,
+    authorizedAt: data.authorizedAt,
+    releasedAt: data.releasedAt,
   };
 }
 
 export async function updateLabRequestStatus(
   requestId: string,
-  status: "PENDING" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED",
+  status: LabRequest["status"],
   labTechnicianId?: string,
   labTechnicianName?: string
 ): Promise<void> {
   const updateData: any = { status };
 
-  if (status === "IN_PROGRESS") {
+  if (status === "SAMPLE_COLLECTED" || status === "IN_PROGRESS") {
     updateData.labTechnicianId = labTechnicianId;
     updateData.labTechnicianName = labTechnicianName;
-  } else if (status === "COMPLETED") {
+    updateData.sampleCollectedAt = new Date().toISOString();
+  } else if (status === "RESULTS_RELEASED" || status === "COMPLETED") {
     updateData.completedAt = new Date().toISOString();
   }
 
@@ -1389,7 +1537,13 @@ export async function addLabResults(
   requestId: string,
   results: LabResult[],
   labTechnicianId: string,
-  labTechnicianName: string
+  labTechnicianName: string,
+  authorization?: {
+    reviewedBy?: string;
+    authorizedBy?: string;
+    authorizationRole?: "SENIOR_LAB_SCIENTIST" | "LABORATORY_SCIENTIST" | "PATHOLOGIST" | "LAB_MANAGER";
+    authorizedAt?: string;
+  }
 ): Promise<void> {
   const requestsRef = collection(db, "lab_requests");
   const q = query(requestsRef, where("requestId", "==", requestId));
@@ -1400,11 +1554,18 @@ export async function addLabResults(
     const requestData = snap.docs[0].data() as any;
     
     await updateDoc(docRef, {
-      status: "COMPLETED",
+      status: "RESULTS_RELEASED",
+      reviewStatus: "AUTHORIZED",
       labTechnicianId,
       labTechnicianName,
       completedAt: new Date().toISOString(),
       results: results,
+      reviewedBy: authorization?.reviewedBy || requestData.reviewedBy || "",
+      reviewedAt: requestData.reviewedAt || "",
+      authorizedBy: authorization?.authorizedBy || "",
+      authorizationRole: authorization?.authorizationRole || "SENIOR_LAB_SCIENTIST",
+      authorizedAt: authorization?.authorizedAt || new Date().toISOString(),
+      releasedAt: new Date().toISOString(),
     });
 
     // Also save results as patient notes
@@ -1421,9 +1582,160 @@ export async function addLabResults(
         title: `Lab Results - ${requestData.requestDate}`,
         note: `Tests requested: ${requestData.tests.map((t: LabTest) => t.testName).join(", ")}\n\nResults:\n${resultsText}`,
         createdAtISO: new Date().toISOString(),
+        source: "LAB_RESULTS",
+        labRequestId: requestId,
       });
     }
   }
+}
+
+export async function saveLabResultsDraft(
+  requestId: string,
+  results: LabResult[],
+  labTechnicianId: string,
+  labTechnicianName: string
+): Promise<void> {
+  const requestsRef = collection(db, "lab_requests");
+  const q = query(requestsRef, where("requestId", "==", requestId));
+  const snap = await getDocs(q);
+
+  if (snap.empty) throw new Error("Lab request was not found.");
+
+  await updateDoc(snap.docs[0].ref, {
+    status: "SAMPLE_COLLECTED",
+    reviewStatus: "DRAFT",
+    labTechnicianId,
+    labTechnicianName,
+    draftResults: results,
+    results,
+    draftUpdatedAt: new Date().toISOString(),
+  });
+}
+
+export async function submitLabResultsForReview(
+  requestId: string,
+  results: LabResult[],
+  labTechnicianId: string,
+  labTechnicianName: string
+): Promise<void> {
+  const requestsRef = collection(db, "lab_requests");
+  const q = query(requestsRef, where("requestId", "==", requestId));
+  const snap = await getDocs(q);
+
+  if (snap.empty) throw new Error("Lab request was not found.");
+
+  await updateDoc(snap.docs[0].ref, {
+    status: "PENDING_VERIFICATION",
+    reviewStatus: "PENDING_REVIEW",
+    labTechnicianId,
+    labTechnicianName,
+    results,
+    submittedForReviewAt: new Date().toISOString(),
+  });
+}
+
+export async function markLabResultsReviewed(
+  requestId: string,
+  reviewedBy: string
+): Promise<void> {
+  const requestsRef = collection(db, "lab_requests");
+  const q = query(requestsRef, where("requestId", "==", requestId));
+  const snap = await getDocs(q);
+
+  if (snap.empty) throw new Error("Lab request was not found.");
+
+  await updateDoc(snap.docs[0].ref, {
+    reviewStatus: "REVIEWED",
+    reviewedBy,
+    reviewedAt: new Date().toISOString(),
+  });
+}
+
+export async function loadReleasedLabResultsByDoctor(doctorId: string, hospitalId: string): Promise<LabRequest[]> {
+  const requestsRef = collection(db, "lab_requests");
+  const q = query(
+    requestsRef,
+    where("doctorId", "==", doctorId),
+    where("hospitalId", "==", hospitalId),
+    where("status", "in", ["RESULTS_RELEASED", "COMPLETED"])
+  );
+  const snap = await getDocs(q);
+
+  return snap.docs
+    .map((d) => {
+      const data = d.data() as any;
+      return {
+        id: data.requestId || d.id,
+        patientId: data.patientId,
+        patientName: data.patientName,
+        doctorId: data.doctorId,
+        doctorName: data.doctorName,
+        hospitalId: data.hospitalId,
+        hospitalName: data.hospitalName,
+        requestDate: data.requestDate,
+        requestTimeISO: data.requestTimeISO,
+        tests: data.tests || [],
+        status: data.status || "RESULTS_RELEASED",
+        priority: data.priority || "ROUTINE",
+        clinicalNotes: data.clinicalNotes,
+        labTechnicianId: data.labTechnicianId,
+        labTechnicianName: data.labTechnicianName,
+        sampleCollectedAt: data.sampleCollectedAt,
+        completedAt: data.completedAt,
+        results: data.results || [],
+        reviewStatus: data.reviewStatus || "AUTHORIZED",
+        reviewedBy: data.reviewedBy,
+        reviewedAt: data.reviewedAt,
+        authorizedBy: data.authorizedBy,
+        authorizationRole: data.authorizationRole,
+        authorizedAt: data.authorizedAt,
+        releasedAt: data.releasedAt,
+      } as LabRequest;
+    })
+    .sort((a, b) => (b.releasedAt || b.completedAt || b.requestTimeISO).localeCompare(a.releasedAt || a.completedAt || a.requestTimeISO));
+}
+
+export async function loadReleasedLabResultsByPatient(patientId: string): Promise<LabRequest[]> {
+  const requestsRef = collection(db, "lab_requests");
+  const q = query(
+    requestsRef,
+    where("patientId", "==", patientId),
+    where("status", "in", ["RESULTS_RELEASED", "COMPLETED"])
+  );
+  const snap = await getDocs(q);
+
+  return snap.docs
+    .map((d) => {
+      const data = d.data() as any;
+      return {
+        id: data.requestId || d.id,
+        patientId: data.patientId,
+        patientName: data.patientName,
+        doctorId: data.doctorId,
+        doctorName: data.doctorName,
+        hospitalId: data.hospitalId,
+        hospitalName: data.hospitalName,
+        requestDate: data.requestDate,
+        requestTimeISO: data.requestTimeISO,
+        tests: data.tests || [],
+        status: data.status || "RESULTS_RELEASED",
+        priority: data.priority || "ROUTINE",
+        clinicalNotes: data.clinicalNotes,
+        labTechnicianId: data.labTechnicianId,
+        labTechnicianName: data.labTechnicianName,
+        sampleCollectedAt: data.sampleCollectedAt,
+        completedAt: data.completedAt,
+        results: data.results || [],
+        reviewStatus: data.reviewStatus || "AUTHORIZED",
+        reviewedBy: data.reviewedBy,
+        reviewedAt: data.reviewedAt,
+        authorizedBy: data.authorizedBy,
+        authorizationRole: data.authorizationRole,
+        authorizedAt: data.authorizedAt,
+        releasedAt: data.releasedAt,
+      } as LabRequest;
+    })
+    .sort((a, b) => (b.releasedAt || b.completedAt || b.requestTimeISO).localeCompare(a.releasedAt || a.completedAt || a.requestTimeISO));
 }
 
 // Patient Account Functions

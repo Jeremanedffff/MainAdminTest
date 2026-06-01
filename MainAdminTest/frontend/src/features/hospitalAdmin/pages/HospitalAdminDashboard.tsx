@@ -28,6 +28,8 @@ import {
   type AdminUserProfile,
   type HospitalInfo,
   type PatientRow,
+  type PatientAddress,
+  type PatientRegistrationDetails,
   type WorkerRow,
 } from "../hospitalAdminFirestore";
 import HospitalAdminCreateWorkerForm from "../components/HospitalAdminCreateWorkerForm";
@@ -80,6 +82,8 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
   const [hospitalName, setHospitalName] = useState("");
   const [hospitalLocation, setHospitalLocation] = useState("");
   const [hospitalCountry, setHospitalCountry] = useState("Lesotho");
+  const [hospitalLicenseNumber, setHospitalLicenseNumber] = useState("");
+  const [hospitalDefaultRegistrationLocation, setHospitalDefaultRegistrationLocation] = useState("Reception");
   const [hospitalStatus, setHospitalStatus] = useState<"ACTIVE" | "DISABLED">("ACTIVE");
 
   const [currentPassword, setCurrentPassword] = useState("");
@@ -119,6 +123,8 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
         setHospitalName(hospitalRow.name);
         setHospitalLocation(hospitalRow.location);
         setHospitalCountry(hospitalRow.country);
+        setHospitalLicenseNumber(hospitalRow.licenseNumber || "");
+        setHospitalDefaultRegistrationLocation(hospitalRow.defaultRegistrationLocation || "Reception");
         setHospitalStatus(hospitalRow.status);
       }
     } catch (e: any) {
@@ -306,6 +312,8 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
     email?: string;
     status: "ACTIVE" | "DISABLED";
     password: string;
+    registrationDetails: PatientRegistrationDetails;
+    address: PatientAddress;
   }) => {
     setSavingPatient(true);
     setError("");
@@ -337,6 +345,8 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
     email?: string;
     status: "ACTIVE" | "DISABLED";
     password: string;
+    registrationDetails: PatientRegistrationDetails;
+    address: PatientAddress;
   }) => {
     if (!profile?.hospitalId || !selectedPatient) return;
 
@@ -353,6 +363,8 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
         email: payload.email,
         status: payload.status,
         password: payload.password,
+        registrationDetails: payload.registrationDetails,
+        address: payload.address,
       });
 
       const rows = await loadPatientsByHospital(profile.hospitalId);
@@ -400,6 +412,8 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
         name: hospitalName,
         location: hospitalLocation,
         country: hospitalCountry,
+        licenseNumber: hospitalLicenseNumber,
+        defaultRegistrationLocation: hospitalDefaultRegistrationLocation,
         status: hospitalStatus,
       });
 
@@ -611,6 +625,16 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
             <label style={styles.label}>
               Country
               <input style={styles.input} value={hospitalCountry} onChange={(e) => setHospitalCountry(e.target.value)} />
+            </label>
+
+            <label style={styles.label}>
+              Licence Number
+              <input style={styles.input} value={hospitalLicenseNumber} onChange={(e) => setHospitalLicenseNumber(e.target.value)} />
+            </label>
+
+            <label style={styles.label}>
+              Default Registration Location
+              <input style={styles.input} value={hospitalDefaultRegistrationLocation} onChange={(e) => setHospitalDefaultRegistrationLocation(e.target.value)} />
             </label>
 
             <label style={styles.label}>
@@ -903,7 +927,7 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
           <div style={styles.sectionTitle}>Change Password</div>
           <div style={styles.sectionSub}>Update your own password anytime.</div>
 
-          <div style={styles.form}>
+          <div className="animated-form-surface" style={styles.form}>
             <label style={styles.label}>
               Current Password
               <input
@@ -943,7 +967,7 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
 
       {showCreateWorker && profile && (
         <div style={styles.overlay} onClick={() => !savingWorker && setShowCreateWorker(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className="animated-form-surface" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h2 style={{ margin: 0 }}>Create Worker</h2>
               <button style={styles.closeBtn} onClick={() => !savingWorker && setShowCreateWorker(false)}>
@@ -965,7 +989,7 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
 
       {showEditWorker && profile && selectedWorker && (
         <div style={styles.overlay} onClick={() => !savingWorker && setShowEditWorker(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className="animated-form-surface" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h2 style={{ margin: 0 }}>Edit Worker</h2>
               <button
@@ -1006,7 +1030,7 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
 
       {showCreatePatient && profile && hospitalInfo && (
         <div style={styles.overlay} onClick={() => !savingPatient && setShowCreatePatient(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className="animated-form-surface" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h2 style={{ margin: 0 }}>Create Patient</h2>
               <button style={styles.closeBtn} onClick={() => !savingPatient && setShowCreatePatient(false)}>
@@ -1030,7 +1054,7 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
 
       {showEditPatient && profile && hospitalInfo && selectedPatient && (
         <div style={styles.overlay} onClick={() => !savingPatient && setShowEditPatient(false)}>
-          <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+          <div className="animated-form-surface" style={styles.modal} onClick={(e) => e.stopPropagation()}>
             <div style={styles.modalHeader}>
               <h2 style={{ margin: 0 }}>Edit Patient</h2>
               <button
@@ -1060,6 +1084,8 @@ const HospitalAdminDashboard: React.FC<Props> = ({ adminId }) => {
                 phone: selectedPatient.phone,
                 email: selectedPatient.email || "",
                 status: selectedPatient.status,
+                registrationDetails: selectedPatient.registrationDetails,
+                address: selectedPatient.address,
               }}
               onCancel={() => {
                 setShowEditPatient(false);

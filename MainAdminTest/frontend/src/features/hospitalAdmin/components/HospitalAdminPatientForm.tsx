@@ -9,6 +9,21 @@ type PatientFormValue = {
   phone: string;
   email?: string;
   status: "ACTIVE" | "DISABLED";
+  registrationDetails?: {
+    registrationCheckId?: string;
+    healthCareNumber?: string;
+    registrationLocation?: string;
+    registrationDate?: string;
+    registrationTime?: string;
+  };
+  address?: {
+    streetAddress?: string;
+    streetAddressLine2?: string;
+    city?: string;
+    region?: string;
+    postalCode?: string;
+    country?: string;
+  };
 };
 
 type Props = {
@@ -31,6 +46,21 @@ type Props = {
     email?: string;
     status: "ACTIVE" | "DISABLED";
     password: string;
+    registrationDetails: {
+      registrationCheckId: string;
+      healthCareNumber: string;
+      registrationLocation: string;
+      registrationDate: string;
+      registrationTime: string;
+    };
+    address: {
+      streetAddress: string;
+      streetAddressLine2: string;
+      city: string;
+      region: string;
+      postalCode: string;
+      country: string;
+    };
   }) => Promise<void> | void;
   saving?: boolean;
 };
@@ -78,6 +108,17 @@ const HospitalAdminPatientForm: React.FC<Props> = ({
     setPhone(digitsOnlyInput(initialValue.phone));
     setEmail(initialValue.email || "");
     setStatus(initialValue.status);
+    setRegistrationCheckId(initialValue.registrationDetails?.registrationCheckId || "");
+    setHealthCareNumber(initialValue.registrationDetails?.healthCareNumber || "");
+    setRegistrationLocation(initialValue.registrationDetails?.registrationLocation || "");
+    setRegistrationDate(initialValue.registrationDetails?.registrationDate || new Date().toISOString().slice(0, 10));
+    setRegistrationTime(initialValue.registrationDetails?.registrationTime || new Date().toTimeString().slice(0, 5));
+    setStreetAddress(initialValue.address?.streetAddress || "");
+    setStreetAddressLine2(initialValue.address?.streetAddressLine2 || "");
+    setCity(initialValue.address?.city || "");
+    setRegion(initialValue.address?.region || "");
+    setPostalCode(initialValue.address?.postalCode || "");
+    setCountry(initialValue.address?.country || "Lesotho");
     setPassword("");
   }, [initialValue]);
 
@@ -159,6 +200,21 @@ const HospitalAdminPatientForm: React.FC<Props> = ({
         email: email.trim(),
         status,
         password: password.trim(),
+        registrationDetails: {
+          registrationCheckId: registrationCheckId.trim(),
+          healthCareNumber: healthCareNumber.trim(),
+          registrationLocation: registrationLocation.trim(),
+          registrationDate,
+          registrationTime,
+        },
+        address: {
+          streetAddress: streetAddress.trim(),
+          streetAddressLine2: streetAddressLine2.trim(),
+          city: city.trim(),
+          region: region.trim(),
+          postalCode: postalCode.trim(),
+          country,
+        },
       });
     } catch (e: any) {
       setError(e?.message || "Failed to save patient.");
@@ -166,7 +222,7 @@ const HospitalAdminPatientForm: React.FC<Props> = ({
   };
 
   return (
-    <form onSubmit={submit} style={styles.form}>
+    <form className="animated-form-surface" onSubmit={submit} style={styles.form}>
       <div style={styles.topLine}>
         <span>Patient Information</span>
         <span>{registrationProgress}%</span>
@@ -181,7 +237,12 @@ const HospitalAdminPatientForm: React.FC<Props> = ({
       <div style={styles.grid2}>
         <label style={styles.label}>
           Registration Check ID
-          <input style={styles.input} value={registrationCheckId} onChange={(e) => setRegistrationCheckId(e.target.value.toUpperCase())} disabled={saving} />
+          <input
+            style={{ ...styles.input, background: "#e2edf0" }}
+            value={mode === "create" ? `Auto-generated as REG-${districtCode}-${hospitalCode}-YYYYMMDD-001` : registrationCheckId}
+            readOnly
+            disabled={saving}
+          />
         </label>
         <label style={styles.label}>
           Health Care Number*

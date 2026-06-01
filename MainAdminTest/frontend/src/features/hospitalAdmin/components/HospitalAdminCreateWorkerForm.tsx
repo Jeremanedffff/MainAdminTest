@@ -88,7 +88,7 @@ const HospitalAdminCreateWorkerForm: React.FC<Props> = ({
   };
 
   return (
-    <form onSubmit={submit} style={styles.form}>
+    <form className="animated-form-surface" onSubmit={submit} style={styles.form}>
       <div style={styles.infoBox}>
         <div style={styles.infoTitle}>Hospital</div>
         <div style={styles.infoText}>{hospitalName}</div>

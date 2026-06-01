@@ -177,7 +177,7 @@ const CreateHospitalAdminForm: React.FC<Props> = ({
   };
 
   return (
-    <form onSubmit={submit} style={styles.form}>
+    <form className="animated-form-surface" onSubmit={submit} style={styles.form}>
       <div style={styles.row}>
         <label style={styles.label}>Full Name</label>
         <input

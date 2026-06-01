@@ -24,7 +24,7 @@ const HospitalAdminEditHospitalForm: React.FC<Props> = ({ initial, onCancel, onS
   };
 
   return (
-    <form onSubmit={submit} style={styles.form}>
+    <form className="animated-form-surface" onSubmit={submit} style={styles.form}>
       <label style={styles.label}>
         Hospital Name
         <input style={styles.input} value={name} onChange={(e) => setName(e.target.value)} />

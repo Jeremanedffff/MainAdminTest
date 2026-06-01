@@ -2,6 +2,7 @@
 import './ReceptionDashboard.css';
 import {
   loadPatientsByHospital,
+  loadHospitalById,
   findPatientById,
   createPatientByAdminFirestore,
   getPatientAccount,
@@ -13,6 +14,7 @@ import {
   type PatientVisit,
   type Prescription,
   type PatientAccount,
+  type HospitalInfo,
   loadPrescriptionsByHospital,
   testMpesaPayment,
 } from "../hospitalAdmin/hospitalAdminFirestore";
@@ -46,6 +48,28 @@ type Props = {
 type Tab = "search" | "register" | "visits" | "payments" | "processing";
 type PaymentMethod = "ACCOUNT_BALANCE" | "CASH" | "MPESA" | "ECOCASH";
 
+function makeRegistrationDefaults(hospital?: HospitalInfo | null) {
+  return {
+    registrationCheckId: "",
+    healthCareNumber: "",
+    registrationLocation: hospital?.defaultRegistrationLocation || "Reception",
+    registrationDate: new Date().toISOString().slice(0, 10),
+    registrationTime: new Date().toTimeString().slice(0, 5),
+    firstName: "",
+    lastName: "",
+    sex: "MALE" as "MALE" | "FEMALE",
+    age: "",
+    phone: "",
+    email: "",
+    streetAddress: "",
+    streetAddressLine2: "",
+    city: hospital?.location || "",
+    region: hospital?.districtCode || "",
+    postalCode: "",
+    country: hospital?.country || "Lesotho",
+  };
+}
+
 export default function ReceptionDashboard({ receptionistId, hospitalId }: Props) {
   const [tab, setTab] = useState<Tab>("search");
   const [searchQuery, setSearchQuery] = useState("");
@@ -66,28 +90,11 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
   const [loadingPatientAccount, setLoadingPatientAccount] = useState(false);
   const [focusedPaymentPrescriptionId, setFocusedPaymentPrescriptionId] = useState("");
   const [focusedPaymentPatient, setFocusedPaymentPatient] = useState<PatientRow | null>(null);
+  const [hospitalInfo, setHospitalInfo] = useState<HospitalInfo | null>(null);
 
   // Registration form state
   const [showRegisterForm, setShowRegisterForm] = useState(false);
-  const [formData, setFormData] = useState({
-    registrationCheckId: "",
-    healthCareNumber: "",
-    registrationLocation: "",
-    registrationDate: new Date().toISOString().slice(0, 10),
-    registrationTime: new Date().toTimeString().slice(0, 5),
-    firstName: "",
-    lastName: "",
-    sex: "MALE" as "MALE" | "FEMALE",
-    age: "",
-    phone: "",
-    email: "",
-    streetAddress: "",
-    streetAddressLine2: "",
-    city: "",
-    region: "",
-    postalCode: "",
-    country: "Lesotho",
-  });
+  const [formData, setFormData] = useState(() => makeRegistrationDefaults());
 
   // Today's visits tracking
   const [todayVisits, setTodayVisits] = useState<string[]>([]);
@@ -652,14 +659,25 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
   const loadData = async () => {
     setLoading(true);
     try {
-      const [patientsData, prescriptionsData, visitsData] = await Promise.all([
+      const [patientsData, prescriptionsData, visitsData, hospitalData] = await Promise.all([
         loadPatientsByHospital(hospitalId),
         loadPrescriptionsByHospital(hospitalId),
         loadTodayVisitsByHospital(hospitalId),
+        loadHospitalById(hospitalId),
       ]);
       setPatients(patientsData);
       setPrescriptions(prescriptionsData);
       setTodayVisitRows(visitsData);
+      setHospitalInfo(hospitalData);
+      if (hospitalData) {
+        setFormData((current) => ({
+          ...current,
+          registrationLocation: current.registrationLocation || hospitalData.defaultRegistrationLocation || "Reception",
+          city: current.city || hospitalData.location || "",
+          region: current.region || hospitalData.districtCode || "",
+          country: current.country || hospitalData.country || "Lesotho",
+        }));
+      }
       // Extract patient IDs from today's visits
       setTodayVisits(visitsData.map(visit => visit.patientId));
     } catch (e: any) {
@@ -713,7 +731,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
     const fallbackPatient: PatientRow = {
       id: prescription.patientId,
       hospitalId,
-      hospitalName: prescription.hospitalName || `Hospital ${hospitalId}`,
+      hospitalName: prescription.hospitalName || hospitalDisplayName,
       hospitalCode: "",
       districtCode: "",
       fullName: prescription.patientName,
@@ -781,6 +799,11 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
     !loadingPatientAccount &&
     Number(patientAccount?.balance || 0) <= 0;
 
+  const hospitalDisplayName = hospitalInfo?.name || `Hospital ${hospitalId}`;
+  const hospitalCode = hospitalInfo?.hospitalCode || "";
+  const districtCode = hospitalInfo?.districtCode || "";
+  const hospitalLicenseNumber = hospitalInfo?.licenseNumber || "";
+
   const paidPrescriptionCount = useMemo(
     () => prescriptions.filter((p) => p.paymentStatus === "PAID").length,
     [prescriptions]
@@ -822,7 +845,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
         patientId,
         patientName: patient.fullName,
         hospitalId,
-        hospitalName: `Hospital ${hospitalId}`,
+        hospitalName: hospitalDisplayName,
         receptionistId,
         receptionistName: `Receptionist ${receptionistId}`,
         purpose: "General visit",
@@ -837,7 +860,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
           patientId: patient.id,
           patientName: patient.fullName,
           hospitalId,
-          hospitalName: `Hospital ${hospitalId}`,
+          hospitalName: hospitalDisplayName,
           receptionistId,
           receptionistName: `Receptionist ${receptionistId}`,
           visitDate: new Date().toISOString().slice(0, 10),
@@ -904,46 +927,52 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       return;
     }
 
+    if (!hospitalCode || !districtCode) {
+      setError("This hospital is missing its hospital code or district code. Ask the hospital admin to update the hospital profile first.");
+      return;
+    }
+
     setLoading(true);
     try {
-      await createPatientByAdminFirestore({
+      const createdPatient = await createPatientByAdminFirestore({
         hospitalId,
-        hospitalName: `Hospital ${hospitalId}`,
-        hospitalCode: "HOSP001",
-        districtCode: "DIST001",
+        hospitalName: hospitalDisplayName,
+        hospitalCode,
+        districtCode,
         fullName,
         sex: formData.sex,
         age: parseInt(formData.age),
         phone: formData.phone.trim(),
         email: formData.email.trim() || undefined,
-        password: "temp123",
+        password: "1234",
+        registrationDetails: {
+          registrationCheckId: formData.registrationCheckId.trim(),
+          healthCareNumber: formData.healthCareNumber.trim(),
+          registrationLocation: formData.registrationLocation.trim() || hospitalInfo?.defaultRegistrationLocation || "Reception",
+          registrationDate: formData.registrationDate,
+          registrationTime: formData.registrationTime,
+          hospitalName: hospitalDisplayName,
+          hospitalLicenseNumber,
+        },
+        address: {
+          streetAddress: formData.streetAddress.trim(),
+          streetAddressLine2: formData.streetAddressLine2.trim(),
+          city: formData.city.trim(),
+          region: formData.region.trim(),
+          postalCode: formData.postalCode.trim(),
+          country: formData.country,
+        },
       });
 
       // Reset form
-      setFormData({
-        registrationCheckId: "",
-        healthCareNumber: "",
-        registrationLocation: "",
-        registrationDate: new Date().toISOString().slice(0, 10),
-        registrationTime: new Date().toTimeString().slice(0, 5),
-        firstName: "",
-        lastName: "",
-        sex: "MALE",
-        age: "",
-        phone: "",
-        email: "",
-        streetAddress: "",
-        streetAddressLine2: "",
-        city: "",
-        region: "",
-        postalCode: "",
-        country: "Lesotho",
-      });
+      setFormData(makeRegistrationDefaults(hospitalInfo));
       setShowRegisterForm(false);
 
       // Reload patients
       await loadData();
-      setSuccess("Patient registered successfully!");
+      setSuccess(
+        `Patient registered successfully! Registration Check ID: ${createdPatient.registrationDetails?.registrationCheckId || "Generated"}`
+      );
     } catch (e: any) {
       setError(e?.message || "Failed to register patient");
     } finally {
@@ -964,7 +993,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
     try {
       let account = await getPatientAccount(patient.id, hospitalId);
       if (!account) {
-        account = await createPatientAccount(patient.id, hospitalId, `Hospital ${hospitalId}`);
+      account = await createPatientAccount(patient.id, hospitalId, hospitalDisplayName);
       }
       setPatientAccount(account);
     } catch (e: any) {
@@ -1256,7 +1285,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
       )}
 
       {selectedPatient ? (
-        <div style={ui.paymentPanel}>
+        <div className="animated-form-surface" style={ui.paymentPanel}>
             <div style={ui.paymentHeader}>
               <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
               <span style={{ ...ui.patientAvatar, ...ui.mpesaBadge }}><Wallet size={24} /></span>
@@ -1438,11 +1467,46 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
 
           <div style={ui.registrationGrid2}>
             <label style={ui.registrationLabel}>
+              Hospital Name
+              <input
+                style={{ ...ui.registrationInput, background: "#e2edf0" }}
+                value={hospitalDisplayName}
+                readOnly
+              />
+            </label>
+            <label style={ui.registrationLabel}>
+              Licence Number
+              <input
+                style={{ ...ui.registrationInput, background: "#e2edf0" }}
+                value={hospitalLicenseNumber || "Not set"}
+                readOnly
+              />
+            </label>
+            <label style={ui.registrationLabel}>
+              Hospital Code
+              <input
+                style={{ ...ui.registrationInput, background: "#e2edf0" }}
+                value={hospitalCode || "Not set"}
+                readOnly
+              />
+            </label>
+            <label style={ui.registrationLabel}>
+              District Code
+              <input
+                style={{ ...ui.registrationInput, background: "#e2edf0" }}
+                value={districtCode || "Not set"}
+                readOnly
+              />
+            </label>
+          </div>
+
+          <div style={ui.registrationGrid2}>
+            <label style={ui.registrationLabel}>
               Registration Check ID
               <input
-                style={ui.registrationInput}
-                value={formData.registrationCheckId}
-                onChange={(e) => setFormData({ ...formData, registrationCheckId: e.target.value.toUpperCase() })}
+                style={{ ...ui.registrationInput, background: "#e2edf0" }}
+                value={`Auto-generated as REG-${districtCode || "DIST"}-${hospitalCode || "HOSP"}-YYYYMMDD-001`}
+                readOnly
               />
             </label>
             <label style={ui.registrationLabel}>
@@ -1828,7 +1892,7 @@ export default function ReceptionDashboard({ receptionistId, hospitalId }: Props
               </div>
             ))}
           {paymentPanelOpen && focusedPaymentPatient ? (
-            <div style={ui.currentPaymentPanel}>
+            <div className="animated-form-surface" style={ui.currentPaymentPanel}>
               <div style={ui.paymentHeader}>
                 <div style={{ display: "flex", alignItems: "center", gap: 14, minWidth: 0 }}>
                   <span style={{ ...ui.patientAvatar, ...ui.mpesaBadge }}><Wallet size={24} /></span>

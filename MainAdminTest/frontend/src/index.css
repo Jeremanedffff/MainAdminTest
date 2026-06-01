@@ -353,6 +353,102 @@ input, select, textarea {
   }
 }
 
+/* Animated form background shared across dashboards */
+.animated-form-surface,
+.reception-registration-form,
+.login-card,
+.register-card,
+.hs-modal,
+.assessment-card,
+.hospital-admin-formPanel {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+}
+
+.animated-form-surface::before,
+.reception-registration-form::before,
+.login-card::before,
+.register-card::before,
+.hs-modal::before,
+.assessment-card::before,
+.hospital-admin-formPanel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.42;
+  background-image:
+    linear-gradient(rgba(74, 144, 226, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(74, 144, 226, 0.075) 1px, transparent 1px),
+    linear-gradient(90deg, transparent 0 18px, rgba(53, 183, 165, 0.17) 18px 22px, transparent 22px 40px),
+    linear-gradient(transparent 0 18px, rgba(53, 183, 165, 0.17) 18px 22px, transparent 22px 40px);
+  background-position: 0 0, 0 0, 22px 22px, 22px 22px;
+  background-size: 44px 44px, 44px 44px, 180px 180px, 180px 180px;
+  animation: healthFormGridDrift 24s linear infinite;
+}
+
+.animated-form-surface::after,
+.reception-registration-form::after,
+.login-card::after,
+.register-card::after,
+.hs-modal::after,
+.assessment-card::after,
+.hospital-admin-formPanel::after {
+  content: "";
+  position: absolute;
+  inset: auto -8% 8% -8%;
+  height: 150px;
+  pointer-events: none;
+  z-index: 0;
+  opacity: 0.22;
+  background-image: url("data:image/svg+xml,%3Csvg width='760' height='150' viewBox='0 0 760 150' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 78 H96 L116 78 L130 46 L150 112 L172 62 L194 78 H318 L340 78 L358 56 L376 102 L402 72 L424 78 H552 L574 78 L592 42 L616 116 L640 62 L662 78 H760' fill='none' stroke='%232563eb' stroke-width='4' stroke-linecap='round' stroke-linejoin='round' opacity='0.68'/%3E%3Cpath d='M0 105 H760' fill='none' stroke='%2335b7a5' stroke-width='2' stroke-dasharray='8 16' opacity='0.42'/%3E%3C/svg%3E");
+  background-repeat: repeat-x;
+  background-size: 760px 150px;
+  animation: healthFormPulseMove 17s linear infinite;
+}
+
+.animated-form-surface > *,
+.reception-registration-form > *,
+.login-card > *,
+.register-card > *,
+.hs-modal > *,
+.assessment-card > *,
+.hospital-admin-formPanel > * {
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes healthFormGridDrift {
+  from { background-position: 0 0, 0 0, 22px 22px, 22px 22px; }
+  to { background-position: 44px 44px, 44px 44px, 202px 202px, 202px 202px; }
+}
+
+@keyframes healthFormPulseMove {
+  from { background-position: 0 50%; }
+  to { background-position: -760px 50%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animated-form-surface::before,
+  .animated-form-surface::after,
+  .reception-registration-form::before,
+  .reception-registration-form::after,
+  .login-card::before,
+  .login-card::after,
+  .register-card::before,
+  .register-card::after,
+  .hs-modal::before,
+  .hs-modal::after,
+  .assessment-card::before,
+  .assessment-card::after,
+  .hospital-admin-formPanel::before,
+  .hospital-admin-formPanel::after {
+    animation: none;
+  }
+}
+
 /* Ensure white backgrounds have black text */
 [style*="background: white"], 
 [style*="background: #fff"], 

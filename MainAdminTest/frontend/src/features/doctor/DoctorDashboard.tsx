@@ -23,6 +23,7 @@ import {
   addPatientNoteFirestore,
   createPrescriptionFirestore,
   loadPatientNotes,
+  loadReleasedLabResultsByDoctor,
   loadPatientsByHospital,
   searchPatientsAcrossHospitals,
   createLabRequest,
@@ -30,6 +31,7 @@ import {
   type PatientNoteRow,
   type PatientRow,
   type PrescriptionItem,
+  type LabRequest,
   type LabTest,
 } from "../hospitalAdmin/hospitalAdminFirestore";
 
@@ -290,6 +292,8 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
   const [savingPrescription, setSavingPrescription] = useState(false);
 
   const [showLabRequestForm, setShowLabRequestForm] = useState(false);
+  const [releasedLabResults, setReleasedLabResults] = useState<LabRequest[]>([]);
+  const [selectedLabResult, setSelectedLabResult] = useState<LabRequest | null>(null);
   const [labTests, setLabTests] = useState<LabTest[]>([]);
   const [labPriority, setLabPriority] = useState<"ROUTINE" | "URGENT" | "STAT">("ROUTINE");
   const [labClinicalNotes, setLabClinicalNotes] = useState("");
@@ -383,6 +387,8 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
       if (!selectedPatient) {
         setNotes([]);
+        setReleasedLabResults([]);
+        setSelectedLabResult(null);
         setAiSummary(null);
         setAiMedicationAdvice(null);
         setAiMedicationAdviceNoteId("");
@@ -394,8 +400,12 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       setSuccess("");
 
       try {
-        const rows = await loadPatientNotes(selectedPatient.id);
+        const [rows, labRows] = await Promise.all([
+          loadPatientNotes(selectedPatient.id),
+          loadReleasedLabResultsByDoctor(doctorId, hospitalId),
+        ]);
         setNotes(rows);
+        setReleasedLabResults(labRows.filter((request) => request.patientId === selectedPatient.id));
         setAiSummary(null);
         setAiMedicationAdvice(null);
         setAiMedicationAdviceNoteId("");
@@ -408,7 +418,17 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
     };
 
     run();
-  }, [selectedPatient]);
+  }, [selectedPatient, doctorId, hospitalId]);
+
+  const newestReleasedLabResult = releasedLabResults[0] || null;
+
+  const labAuthorizationRoleLabel = (role?: LabRequest["authorizationRole"]) => {
+    if (role === "PATHOLOGIST") return "Pathologist";
+    if (role === "LABORATORY_SCIENTIST") return "Laboratory Scientist";
+    if (role === "SENIOR_LAB_SCIENTIST") return "Senior Laboratory Scientist";
+    if (role === "LAB_MANAGER") return "Laboratory Manager";
+    return "Not recorded";
+  };
 
   const filteredPatients = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -1026,11 +1046,8 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
     try {
       const linkedNote = notes[0];
-      if (!linkedNote) {
-        throw new Error("Save a clinical note before prescribing so AI can analyze and link the medication decision.");
-      }
 
-      if (!aiMedicationAdvice || aiMedicationAdviceNoteId !== linkedNote.id) {
+      if (linkedNote && (!aiMedicationAdvice || aiMedicationAdviceNoteId !== linkedNote.id)) {
         await requestMedicationAdviceForLatestNote();
       }
 
@@ -1040,7 +1057,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
         doctorId,
         doctorName,
         hospitalId,
-        hospitalName: `Hospital ${hospitalId}`,
+        hospitalName: selectedPatient.hospitalName || `Hospital ${hospitalId}`,
         items: validItems,
         notes: prescriptionNotes,
         linkedNoteId: linkedNote?.id,
@@ -1049,10 +1066,12 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
         linkedNoteCreatedAtISO: linkedNote?.createdAtISO,
       });
 
-      try {
-        await sendDoctorDecisionFeedback(prescriptionId, linkedNote, validItems);
-      } catch (feedbackError) {
-        console.warn("AI doctor decision feedback was not saved:", feedbackError);
+      if (linkedNote) {
+        try {
+          await sendDoctorDecisionFeedback(prescriptionId, linkedNote, validItems);
+        } catch (feedbackError) {
+          console.warn("AI doctor decision feedback was not saved:", feedbackError);
+        }
       }
 
       const refreshedNotes = await loadPatientNotes(selectedPatient.id);
@@ -1062,7 +1081,11 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
       setShowPrescriptionForm(false);
       setAiSummary(null);
 
-      setSuccess(`Prescription sent to pharmacy and linked to analyzed note "${linkedNote.title}".`);
+      setSuccess(
+        linkedNote
+          ? `Prescription ${prescriptionId} sent to pharmacy and linked to analyzed note "${linkedNote.title}".`
+          : `Prescription ${prescriptionId} sent to pharmacy.`
+      );
     } catch (e: any) {
       console.error("CREATE PRESCRIPTION ERROR:", e);
       setError(e?.message || "Failed to create prescription.");
@@ -1406,6 +1429,23 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                   <div><span>Phone</span><b>{selectedPatient.phone || "Not captured"}</b></div>
                 </div>
               </section>
+
+              {newestReleasedLabResult && (
+                <section style={styles.labResultNotice}>
+                  <div>
+                    <div style={styles.labResultNoticeTitle}>
+                      <CheckCircle2 size={18} />
+                      New Lab Results Available
+                    </div>
+                    <div style={styles.labResultNoticeSub}>
+                      {newestReleasedLabResult.tests.map((test) => test.testName).join(", ")} released for {selectedPatient.fullName}.
+                    </div>
+                  </div>
+                  <button style={styles.secondaryBtn} onClick={() => setSelectedLabResult(newestReleasedLabResult)}>
+                    Open Results
+                  </button>
+                </section>
+              )}
 
               <div className="assessment-grid">
                 <section className="assessment-card assessment-vitals">
@@ -1958,7 +1998,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
         {showPrescriptionForm && selectedPatient && (
           <div style={styles.overlay} onClick={() => !savingPrescription && setShowPrescriptionForm(false)}>
-            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className="animated-form-surface" style={styles.modal} onClick={(e) => e.stopPropagation()}>
               <div style={styles.modalHeader}>
                 <h2 style={{ margin: 0 }}>Send Prescription to Pharmacy</h2>
                 <button
@@ -1984,8 +2024,8 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                     </div>
                   </div>
                 ) : (
-                  <div style={styles.error}>
-                    Save a clinical note before prescribing so the medication can be linked to the symptoms/assessment.
+                  <div style={styles.infoNotice}>
+                    No saved clinical note is linked yet. The medication will still be sent to pharmacy.
                   </div>
                 )}
               </div>
@@ -2028,7 +2068,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                       <div style={styles.aiFineText}>Click a suggestion to add it, or type any medication manually below.</div>
                     </div>
                   ) : (
-                    <div style={styles.loading}>Analyzing the latest saved note before medication selection...</div>
+                    <div style={styles.loading}>No AI medication suggestions loaded. You can type medication manually below.</div>
                   )}
 
                   {prescriptionItems.map((item, index) => (
@@ -2114,7 +2154,7 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
 
         {showLabRequestForm && selectedPatient && (
           <div style={styles.overlay} onClick={() => !savingLabRequest && setShowLabRequestForm(false)}>
-            <div style={styles.modal} onClick={(e) => e.stopPropagation()}>
+            <div className="animated-form-surface" style={styles.modal} onClick={(e) => e.stopPropagation()}>
               <div style={styles.modalHeader}>
                 <h2 style={{ margin: 0 }}>Send to Laboratory</h2>
                 <button
@@ -2255,6 +2295,51 @@ const DoctorDashboard: React.FC<Props> = ({ doctorId, hospitalId }) => {
                 <button style={styles.primaryBtn} onClick={sendLabRequest} disabled={savingLabRequest}>
                   {savingLabRequest ? "Sending..." : "Send to Laboratory"}
                 </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {selectedLabResult && (
+          <div style={styles.overlay} onClick={() => setSelectedLabResult(null)}>
+            <div className="animated-form-surface" style={styles.historyModal} onClick={(e) => e.stopPropagation()}>
+              <div style={styles.modalHeader}>
+                <h2 style={styles.modalTitle}>
+                  <FlaskConical size={24} />
+                  Lab Results - {selectedLabResult.patientName}
+                </h2>
+                <button style={styles.closeBtn} onClick={() => setSelectedLabResult(null)}>
+                  <X size={18} />
+                </button>
+              </div>
+
+              <div style={styles.labResultSummary}>
+                <div><span>Request</span><b>{selectedLabResult.id}</b></div>
+                <div><span>Status</span><b>Results Released</b></div>
+                <div><span>Reviewed By</span><b>{selectedLabResult.reviewedBy || "Not recorded"}</b></div>
+                <div><span>Approved By</span><b>{selectedLabResult.authorizedBy || "Not recorded"}</b></div>
+                <div><span>Approval Role</span><b>{labAuthorizationRoleLabel(selectedLabResult.authorizationRole)}</b></div>
+                <div><span>Approved At</span><b>{(selectedLabResult.authorizedAt || selectedLabResult.releasedAt || "").replace("T", " ").slice(0, 16) || "Not recorded"}</b></div>
+                <div><span>Released At</span><b>{(selectedLabResult.releasedAt || selectedLabResult.completedAt || "").replace("T", " ").slice(0, 16) || "Not recorded"}</b></div>
+              </div>
+
+              <div style={styles.labResultsTable}>
+                <div style={styles.labResultsHeader}>Test</div>
+                <div style={styles.labResultsHeader}>Value</div>
+                <div style={styles.labResultsHeader}>Reference Range</div>
+                <div style={styles.labResultsHeader}>Flag</div>
+                <div style={styles.labResultsHeader}>Comments</div>
+                {(selectedLabResult.results || []).map((result, index) => (
+                  <React.Fragment key={`${result.testId}-${index}`}>
+                    <div>{result.testName}</div>
+                    <div><b>{result.value}{result.unit ? ` ${result.unit}` : ""}</b></div>
+                    <div>{result.referenceRange || "-"}</div>
+                    <div style={result.status === "ABNORMAL" || result.status === "CRITICAL" ? styles.labAbnormal : styles.labNormal}>
+                      {result.status || "NORMAL"}
+                    </div>
+                    <div>{result.notes || "-"}</div>
+                  </React.Fragment>
+                ))}
               </div>
             </div>
           </div>
@@ -2873,6 +2958,62 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#f3f4f6",
     padding: "8px 16px",
     borderRadius: 6,
+  },
+  labResultNotice: {
+    marginTop: 14,
+    marginBottom: 14,
+    border: "1px solid #b7e4cc",
+    background: "#f0fdf4",
+    borderRadius: 8,
+    padding: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  labResultNoticeTitle: {
+    display: "flex",
+    alignItems: "center",
+    gap: 8,
+    fontWeight: 1000,
+    color: "#14532d",
+  },
+  labResultNoticeSub: {
+    marginTop: 5,
+    color: "#166534",
+    fontSize: 13,
+    fontWeight: 700,
+  },
+  labResultSummary: {
+    display: "grid",
+    gridTemplateColumns: "repeat(auto-fit, minmax(150px, 1fr))",
+    gap: 10,
+    margin: "14px 0",
+  },
+  labResultsTable: {
+    display: "grid",
+    gridTemplateColumns: "1.2fr 0.9fr 1fr 0.8fr 1.4fr",
+    gap: 1,
+    background: "#e5e7eb",
+    border: "1px solid #e5e7eb",
+    borderRadius: 8,
+    overflow: "hidden",
+  },
+  labResultsHeader: {
+    background: "#f8fafc",
+    color: "#334155",
+    fontSize: 12,
+    fontWeight: 1000,
+    padding: 10,
+    textTransform: "uppercase",
+  },
+  labAbnormal: {
+    color: "#b91c1c",
+    fontWeight: 1000,
+  },
+  labNormal: {
+    color: "#166534",
+    fontWeight: 1000,
   },
 };
 

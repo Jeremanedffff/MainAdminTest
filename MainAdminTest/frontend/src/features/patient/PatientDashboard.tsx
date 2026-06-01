@@ -1,11 +1,12 @@
 import React, { useEffect, useState } from "react";
 import './PatientDashboard.css';
-import { AlertTriangle, BookOpen, ClipboardList, Wallet, BadgePlus, Building2, HeartPulse } from "lucide-react";
+import { AlertTriangle, BookOpen, ClipboardList, Wallet, BadgePlus, Building2, HeartPulse, FlaskConical } from "lucide-react";
 import mpesaLogo from "../../assets/images/mpesa.png";
 import ecocashLogo from "../../assets/images/ecocash.png";
 import { getPatientProfile } from "../auth/authFirestoreDb";
 import {
   loadPatientNotes,
+  loadReleasedLabResultsByPatient,
   loadPrescriptionsByPatient,
   updatePrescriptionPaymentStatus,
   updatePrescriptionStatus,
@@ -25,6 +26,7 @@ import {
   type PatientAccount,
   type DepositTransaction,
   type ConsultationBill,
+  type LabRequest,
 } from "../hospitalAdmin/hospitalAdminFirestore";
 
 type Props = {
@@ -81,6 +83,8 @@ function IconLabel({
 const PatientDashboard: React.FC<Props> = ({ patientId }) => {
   const [profile, setProfile] = useState<PatientProfile | null>(null);
   const [notes, setNotes] = useState<PatientNoteRow[]>([]);
+  const [releasedLabResults, setReleasedLabResults] = useState<LabRequest[]>([]);
+  const [selectedLabReport, setSelectedLabReport] = useState<LabRequest | null>(null);
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([]);
   const [account, setAccount] = useState<PatientAccount | null>(null);
   const [depositHistory, setDepositHistory] = useState<DepositTransaction[]>([]);
@@ -376,6 +380,34 @@ Generated on: ${new Date().toLocaleDateString()}
     window.URL.revokeObjectURL(url);
   };
 
+  const downloadLabReport = (request: LabRequest) => {
+    const reportText = `
+LAB REPORT
+==========
+Patient: ${request.patientName}
+Lab Request: ${request.id}
+Status: Results Released
+Released: ${(request.releasedAt || request.completedAt || "").replace("T", " ").slice(0, 16) || "Not recorded"}
+
+Your lab results are ready.
+
+Tests:
+${request.tests.map((test) => `- ${test.testName}`).join("\n")}
+
+Please contact your doctor if you have questions about these results.
+    `.trim();
+
+    const blob = new Blob([reportText], { type: "text/plain" });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `Lab_Report_${request.id}_${request.patientName.replace(/\s+/g, "_")}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  };
+
   useEffect(() => {
     const run = async () => {
       setLoadingProfile(true);
@@ -390,9 +422,13 @@ Generated on: ${new Date().toLocaleDateString()}
         console.log("Patient profile loaded:", patientProfile);
         setProfile(patientProfile as PatientProfile | null);
 
-        const patientNotes = await loadPatientNotes(patientId);
+        const [patientNotes, labReports] = await Promise.all([
+          loadPatientNotes(patientId),
+          loadReleasedLabResultsByPatient(patientId),
+        ]);
         console.log("Patient notes loaded:", patientNotes.length);
         setNotes(patientNotes);
+        setReleasedLabResults(labReports);
 
         // Load prescriptions for this patient
         if (patientProfile?.hospitalId) {
@@ -555,6 +591,39 @@ Generated on: ${new Date().toLocaleDateString()}
             )}
           </div>
 
+          <div style={styles.labResultsCard}>
+            <div style={styles.sectionTitle}>Lab Results</div>
+            <div style={styles.sectionSub}>
+              {releasedLabResults.length ? "Your lab results are ready." : "No released lab results yet."}
+            </div>
+            {releasedLabResults.length > 0 ? (
+              <div style={styles.labReadyList}>
+                {releasedLabResults.map((request) => (
+                  <div key={request.id} style={styles.labReadyItem}>
+                    <div>
+                      <div style={styles.prescriptionTitle}>
+                        <IconLabel icon={<FlaskConical size={16} />} label="Your lab results are ready" />
+                      </div>
+                      <div style={styles.prescriptionDetails}>
+                        {request.tests.map((test) => test.testName).join(", ")}
+                      </div>
+                    </div>
+                    <div style={styles.labReadyActions}>
+                      <button style={styles.downloadBtn} onClick={() => setSelectedLabReport(request)}>
+                        View
+                      </button>
+                      <button style={styles.downloadBtn} onClick={() => downloadLabReport(request)}>
+                        Download Report
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div style={styles.loading}>Released lab reports will appear here.</div>
+            )}
+          </div>
+
           <div style={styles.prescriptionsCard}>
             <div style={styles.sectionTitle}>My Prescriptions</div>
             <div style={styles.sectionSub}>
@@ -713,7 +782,7 @@ Generated on: ${new Date().toLocaleDateString()}
           {/* Deposit Modal */}
           {showDepositModal && (
             <div style={styles.overlay} onClick={() => setShowDepositModal(false)}>
-              <div style={styles.depositModal} onClick={(e) => e.stopPropagation()}>
+              <div className="animated-form-surface" style={styles.depositModal} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <h2 style={{ margin: 0 }}><IconLabel icon={<Wallet size={18} />} label="Deposit Money" /></h2>
                   <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", padding: 4 }} onClick={() => setShowDepositModal(false)}>
@@ -795,7 +864,7 @@ Generated on: ${new Date().toLocaleDateString()}
 
           {showPayPrescriptionModal && selectedPrescription && (
             <div style={styles.overlay} onClick={() => setShowPayPrescriptionModal(false)}>
-              <div style={styles.depositModal} onClick={(e) => e.stopPropagation()}>
+              <div className="animated-form-surface" style={styles.depositModal} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <h2 style={{ margin: 0 }}>Pay Prescription {selectedPrescription.id}</h2>
                   <button
@@ -898,7 +967,7 @@ Generated on: ${new Date().toLocaleDateString()}
 
           {showServicePaymentModal && selectedServiceBill && (
             <div style={styles.overlay} onClick={() => setShowServicePaymentModal(false)}>
-              <div style={styles.depositModal} onClick={(e) => e.stopPropagation()}>
+              <div className="animated-form-surface" style={styles.depositModal} onClick={(e) => e.stopPropagation()}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
                   <h2 style={{ margin: 0 }}>Pay Service Bill {selectedServiceBill.billId}</h2>
                   <button
@@ -983,6 +1052,30 @@ Generated on: ${new Date().toLocaleDateString()}
               </div>
             </div>
           )}
+
+          {selectedLabReport && (
+            <div style={styles.overlay} onClick={() => setSelectedLabReport(null)}>
+              <div className="animated-form-surface" style={styles.depositModal} onClick={(e) => e.stopPropagation()}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+                  <h2 style={{ margin: 0 }}><IconLabel icon={<FlaskConical size={18} />} label="Lab Results Ready" /></h2>
+                  <button style={{ background: "none", border: "none", fontSize: 20, cursor: "pointer", padding: 4 }} onClick={() => setSelectedLabReport(null)}>
+                    Close
+                  </button>
+                </div>
+                <p style={styles.sectionSub}>
+                  Your lab results are ready. Download the report or contact your doctor for interpretation.
+                </p>
+                <div style={styles.labReportSimpleBox}>
+                  <b>{selectedLabReport.tests.map((test) => test.testName).join(", ")}</b>
+                  <span>Released {(selectedLabReport.releasedAt || selectedLabReport.completedAt || "").replace("T", " ").slice(0, 16) || "recently"}</span>
+                </div>
+                <button style={styles.downloadBtn} onClick={() => downloadLabReport(selectedLabReport)}>
+                  Download Report
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Patient History Modal */}
           {showPatientHistory && notes.length > 0 && (
             <div style={styles.overlay} onClick={() => setShowPatientHistory(false)}>
@@ -1147,23 +1240,68 @@ const styles: Record<string, React.CSSProperties> = {
   },
   sectionsGrid: {
     display: "grid",
-    gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))",
-    gap: 18,
+    gridTemplateColumns: "repeat(auto-fit, minmax(min(100%, 340px), 1fr))",
+    gap: 16,
     alignItems: "start" as const,
   },
   notesCard: {
     background: "rgba(247, 252, 255, 0.92)",
     border: "1px solid #d6e4f0",
-    borderRadius: 22,
+    borderRadius: 12,
     padding: 20,
     boxShadow: "0 18px 36px rgba(116, 142, 170, 0.1)",
+    order: 4,
+    minWidth: 0,
   },
   prescriptionsCard: {
     background: "rgba(247, 252, 255, 0.92)",
     border: "1px solid #d6e4f0",
-    borderRadius: 22,
+    borderRadius: 12,
     padding: 20,
     boxShadow: "0 18px 36px rgba(116, 142, 170, 0.1)",
+    order: 2,
+    minWidth: 0,
+  },
+  labResultsCard: {
+    background: "rgba(240, 253, 244, 0.92)",
+    border: "1px solid #b7e4cc",
+    borderRadius: 12,
+    padding: 18,
+    boxShadow: "0 18px 36px rgba(116, 142, 170, 0.1)",
+    gridColumn: "1 / -1",
+    order: 1,
+    minWidth: 0,
+  },
+  labReadyList: {
+    display: "grid",
+    gap: 12,
+    marginTop: 12,
+  },
+  labReadyItem: {
+    border: "1px solid #cdebd8",
+    background: "white",
+    borderRadius: 8,
+    padding: 14,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+    flexWrap: "wrap",
+  },
+  labReadyActions: {
+    display: "flex",
+    gap: 8,
+    flexWrap: "wrap",
+    justifyContent: "flex-end",
+  },
+  labReportSimpleBox: {
+    border: "1px solid #d6e4f0",
+    borderRadius: 8,
+    padding: 14,
+    display: "grid",
+    gap: 8,
+    marginBottom: 14,
+    background: "#f8fafc",
   },
   prescriptionsList: {
     display: "grid",
@@ -1413,9 +1551,11 @@ const styles: Record<string, React.CSSProperties> = {
   accountCard: {
     background: "rgba(247, 252, 255, 0.92)",
     border: "1px solid #d6e4f0",
-    borderRadius: 22,
+    borderRadius: 12,
     padding: 20,
     boxShadow: "0 18px 36px rgba(116, 142, 170, 0.1)",
+    order: 3,
+    minWidth: 0,
   },
   balanceDisplay: {
     background: "linear-gradient(135deg, #1678d8 0%, #0e7c86 100%)",
@@ -1452,6 +1592,9 @@ const styles: Record<string, React.CSSProperties> = {
   },
   depositHistory: {
     marginTop: 16,
+    maxHeight: 360,
+    overflowY: "auto",
+    paddingRight: 4,
   },
   historyTitle: {
     fontSize: 16,

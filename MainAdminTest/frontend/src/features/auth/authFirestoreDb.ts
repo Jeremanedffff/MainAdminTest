@@ -77,6 +77,7 @@ export type PatientProfile = {
   age: number;
   phone: string;
   email?: string;
+  password?: string;
   status: "ACTIVE" | "DISABLED";
   registeredBy: "SELF" | "ADMIN" | "RECEPTIONIST";
   createdAtISO: string;
@@ -213,11 +214,43 @@ export async function findUserByIdentifier(identifier: string): Promise<DbUser |
   const emailLower = normalizeEmail(id);
   const phoneNorm = normalizePhone(id);
   const usersRef = collection(db, USERS_COL);
+  const candidateIds = Array.from(new Set([id, id.toUpperCase(), id.toLowerCase()]));
 
-  {
-    const q1 = query(usersRef, where("userId", "==", id), limit(1));
+  for (const candidateId of candidateIds) {
+    const directSnap = await getDoc(doc(db, USERS_COL, candidateId));
+    if (directSnap.exists()) return directSnap.data() as DbUser;
+  }
+
+  for (const candidateId of candidateIds) {
+    const q1 = query(usersRef, where("userId", "==", candidateId), limit(1));
     const s1 = await getDocs(q1);
     if (!s1.empty) return s1.docs[0].data() as DbUser;
+  }
+
+  for (const candidateId of candidateIds) {
+    const patientSnap = await getDoc(doc(db, PATIENTS_COL, candidateId));
+    if (!patientSnap.exists()) continue;
+
+    const patient = patientSnap.data() as PatientProfile & { password?: string };
+    if (!patient.password) continue;
+
+    const repairedUser: DbUser = {
+      role: "PATIENT",
+      userId: patient.userId || patient.patientId || candidateId,
+      fullName: patient.fullName,
+      phone: patient.phone,
+      phoneNorm: normalizePhone(patient.phone || ""),
+      hospitalId: patient.hospitalId,
+      hospitalName: patient.hospitalName,
+      districtCode: patient.districtCode,
+      password: patient.password,
+      createdAtISO: patient.createdAtISO || new Date().toISOString(),
+      status: patient.status || "ACTIVE",
+      ...(patient.email ? { email: patient.email, emailLower: normalizeEmail(patient.email) } : {}),
+    };
+
+    await setDoc(doc(db, USERS_COL, repairedUser.userId), repairedUser, { merge: true });
+    return repairedUser;
   }
 
   {
@@ -332,6 +365,7 @@ export async function registerPatientFirestore(payload: RegisterPatientPayload):
     sex: payload.sex,
     age: payload.age,
     phone,
+    password: payload.password,
     status: "ACTIVE",
     registeredBy: "SELF",
     createdAtISO: now,

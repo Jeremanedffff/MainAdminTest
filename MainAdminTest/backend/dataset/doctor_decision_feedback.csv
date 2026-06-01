@@ -1,0 +1,2 @@
+created_at,patient_id,doctor_id,diagnosis,note_text,treatments_json,treatment_notes,prescription_id
+2026-06-01T10:47:42Z,LER-MAH-0001,EMP-DR-0006,raynaud's disease,"patient profile from database: age 27, sex male. title: urine tests doctor: doctor emp-dr-0006 date: 2026-06-01t10:10:37.341z note: some tests needed medications prescribed: insulin degludec 1 times for 3 days","[{""drugName"": ""Insulin Degludec"", ""dosage"": ""1"", ""frequency"": ""times"", ""days"": 3}]",,RX-2026-0030

@@ -7,6 +7,8 @@ export type CreateHospitalPayload = {
   name: string;
   location: string;
   code: string; // e.g. MSR
+  country: string;
+  licenseNumber: string;
   status: HospitalStatus;
 };
 
@@ -38,6 +40,8 @@ const CreateHospitalForm: React.FC<Props> = ({
   const [name, setName] = useState("");
   const [location, setLocation] = useState("");
   const [code, setCode] = useState("");
+  const [country, setCountry] = useState("Lesotho");
+  const [licenseNumber, setLicenseNumber] = useState("");
   const [status, setStatus] = useState<HospitalStatus>("ACTIVE");
   const [error, setError] = useState<string | null>(null);
 
@@ -57,6 +61,7 @@ const CreateHospitalForm: React.FC<Props> = ({
     if (locationWarning) return setError(locationWarning);
     if (!code.trim()) return setError("Hospital code is required (e.g. MSR).");
     if (!/^[A-Za-z]{2,3}$/.test(code.trim())) return setError("Hospital code must contain letters only, 2 to 3 characters.");
+    if (!country.trim()) return setError("Country is required.");
 
     const formattedCode = code.trim().toUpperCase().slice(0, 3);
     const formattedName = name.trim().toLowerCase();
@@ -77,6 +82,8 @@ const CreateHospitalForm: React.FC<Props> = ({
         name: name.trim(),
         location: location.trim(),
         code: formattedCode,
+        country: country.trim(),
+        licenseNumber: licenseNumber.trim(),
         status,
       });
 
@@ -84,6 +91,8 @@ const CreateHospitalForm: React.FC<Props> = ({
       setName("");
       setLocation("");
       setCode("");
+      setCountry("Lesotho");
+      setLicenseNumber("");
       setStatus("ACTIVE");
     } catch (e: any) {
       setError(e?.message || "Failed to save hospital.");
@@ -91,7 +100,7 @@ const CreateHospitalForm: React.FC<Props> = ({
   };
 
   return (
-    <form onSubmit={submit} style={styles.form}>
+    <form className="animated-form-surface" onSubmit={submit} style={styles.form}>
       <div style={styles.row}>
         <label style={styles.label}>Hospital Name</label>
         <input
@@ -126,6 +135,28 @@ const CreateHospitalForm: React.FC<Props> = ({
         <div style={styles.hint}>
           Example generated hospital ID: <b>{previewId}</b>
         </div>
+      </div>
+
+      <div style={styles.row}>
+        <label style={styles.label}>Country</label>
+        <input
+          style={styles.input}
+          value={country}
+          onChange={(e) => setCountry(lettersOnlyInput(e.target.value))}
+          placeholder="e.g. Lesotho"
+          disabled={saving}
+        />
+      </div>
+
+      <div style={styles.row}>
+        <label style={styles.label}>Licence Number</label>
+        <input
+          style={styles.input}
+          value={licenseNumber}
+          onChange={(e) => setLicenseNumber(e.target.value.toUpperCase())}
+          placeholder="e.g. MOH-LIC-001"
+          disabled={saving}
+        />
       </div>
 
       <div style={styles.row}>

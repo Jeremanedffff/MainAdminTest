@@ -33,6 +33,7 @@ type FirestoreHospitalDoc = {
   name: string;
   location: string;
   country?: string;
+  licenseNumber?: string;
   status: HospitalStatus;
   maxAdmins?: number;
   createdAtISO: string;
@@ -367,7 +368,8 @@ const MainAdminDashboard = () => {
         districtCode: districtToCode(payload.location),
         name: payload.name,
         location: payload.location,
-        country: "Lesotho",
+        country: payload.country,
+        licenseNumber: payload.licenseNumber,
         status: payload.status,
         maxAdmins: settings.maxAdminsPerHospital,
         createdAtISO,
@@ -932,7 +934,7 @@ const MainAdminDashboard = () => {
 
         {showCreateHospital && (
           <div style={layout.overlay} onClick={() => !savingHospital && setShowCreateHospital(false)}>
-            <div style={layout.modal} onClick={(e) => e.stopPropagation()}>
+            <div className="animated-form-surface" style={layout.modal} onClick={(e) => e.stopPropagation()}>
               <div style={layout.modalHeader}>
                 <h2 style={{ margin: 0 }}>Register Hospital</h2>
                 <button style={layout.closeBtn} onClick={() => !savingHospital && setShowCreateHospital(false)}>
@@ -952,7 +954,7 @@ const MainAdminDashboard = () => {
 
         {showCreateAdmin && (
           <div style={layout.overlay} onClick={() => !savingAdmin && setShowCreateAdmin(false)}>
-            <div style={layout.modal} onClick={(e) => e.stopPropagation()}>
+            <div className="animated-form-surface" style={layout.modal} onClick={(e) => e.stopPropagation()}>
               <div style={layout.modalHeader}>
                 <h2 style={{ margin: 0 }}>Create Hospital Admin</h2>
                 <button style={layout.closeBtn} onClick={() => !savingAdmin && setShowCreateAdmin(false)}>
@@ -975,7 +977,7 @@ const MainAdminDashboard = () => {
 
         {editingAdmin && (
           <div style={layout.overlay} onClick={() => !savingAdmin && setEditingAdmin(null)}>
-            <div style={layout.modal} onClick={(e) => e.stopPropagation()}>
+            <div className="animated-form-surface" style={layout.modal} onClick={(e) => e.stopPropagation()}>
               <div style={layout.modalHeader}>
                 <h2 style={{ margin: 0 }}>Edit Hospital Admin</h2>
                 <button style={layout.closeBtn} onClick={() => !savingAdmin && setEditingAdmin(null)}>
